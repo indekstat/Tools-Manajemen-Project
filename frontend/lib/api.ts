@@ -1,7 +1,18 @@
-const API_URL = 'http://localhost:8145';
+export const getApiUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    return `${protocol}//${hostname}:8145`;
+  }
+  return 'http://localhost:8145';
+};
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem('token');
+  const baseUrl = getApiUrl();
   
   const headers = new Headers(options.headers || {});
   if (token) {
@@ -9,15 +20,16 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   }
   headers.set('Content-Type', 'application/json');
 
-  const response = await fetch(`${API_URL}${url}`, {
+  const response = await fetch(`${baseUrl}${url}`, {
     ...options,
     headers,
   });
 
   if (response.status === 401) {
-    // Unauthorized, maybe redirect to login
     localStorage.removeItem('token');
-    window.location.href = '/login';
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
   }
 
   return response;
@@ -62,4 +74,3 @@ export const isProjectSelesaiAkhir = (p: any) => {
   if (!p) return false;
   return isSubstansiSelesai(p) && isAdministrasiSelesai(p);
 };
-

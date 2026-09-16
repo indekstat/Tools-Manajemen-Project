@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiUrl } from '../../lib/api';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -21,7 +22,8 @@ export default function LoginPage() {
       formData.append('username', usr);
       formData.append('password', pwd);
 
-      const res = await fetch('http://localhost:8145/login', {
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData,
@@ -53,39 +55,39 @@ export default function LoginPage() {
   };
 
   const quickUsers = [
-    'superadmin',
-    'ir_user',
-    'gov_user',
-    'pol_user',
-    'finance_user',
-    'viewer'
+    { username: 'superadmin', role: 'Superadmin', label: 'Full Access' },
+    { username: 'ir_user', role: 'IR (Marketing)', label: 'Bidding & PL' },
+    { username: 'gov_user', role: 'Gov User', label: 'Government' },
+    { username: 'pol_user', role: 'Pol User', label: 'Political' },
+    { username: 'finance_user', role: 'Finance User', label: 'Keuangan' },
+    { username: 'viewer', role: 'Viewer', label: 'Read Only' },
   ];
 
   return (
     <div className="login-container">
-      <div className="glass-card login-card" style={{ maxWidth: '420px', width: '100%', padding: '2rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+      <div className="glass-card login-card">
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img 
             src="/logo.png" 
             alt="Logo" 
             style={{ 
-              height: '56px', 
+              height: '60px', 
               width: 'auto', 
-              margin: '0 auto 0.75rem', 
+              margin: '0 auto 1rem', 
               display: 'block', 
               objectFit: 'contain', 
-              opacity: 0.9, 
+              opacity: 0.88, 
               filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.1))' 
             }} 
           />
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 800 }}>InDeTrack</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>InDeTrack</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
             Masuk untuk mengakses sistem tracking project
           </p>
         </div>
 
         {error && (
-          <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#ef4444', fontSize: '0.85rem', marginBottom: '1.25rem', textAlign: 'center' }}>
+          <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5', fontSize: '0.875rem', marginBottom: '1.5rem', textAlign: 'center' }}>
             {error}
           </div>
         )}
@@ -108,7 +110,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="input-group" style={{ marginBottom: '1.25rem' }}>
+          <div className="input-group" style={{ marginBottom: '1.5rem' }}>
             <label className="input-label">Password</label>
             <input
               className="input-field"
@@ -120,47 +122,28 @@ export default function LoginPage() {
             />
           </div>
 
-          <button className="btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '0.8rem', fontSize: '0.95rem' }}>
+          <button className="btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '0.85rem' }}>
             {loading ? 'Memproses...' : 'Masuk ke Dashboard'}
           </button>
         </form>
 
-        {/* QUICK LOGIN TABLE DESIGN MATCHING USER IMAGE */}
-        <div style={{ marginTop: '1.75rem' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            QUICK LOGIN TEST AKUN:
+        {/* QUICK LOGIN CARDS GRID */}
+        <div className="demo-account-grid">
+          <div style={{ gridColumn: '1 / -1', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+            QUICK LOGIN AKUN TEST:
           </div>
-
-          <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden', background: '#ffffff' }}>
-            {quickUsers.map((u, idx) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => handleLogin(u, 'password')}
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  display: 'block',
-                  padding: '0.55rem 1rem',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  color: '#1e293b',
-                  textAlign: 'center',
-                  background: idx % 2 === 1 ? '#fff7ed' : '#ffffff',
-                  border: 'none',
-                  borderBottom: idx < quickUsers.length - 1 ? '1px solid #cbd5e1' : 'none',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease'
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#ffedd5')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 1 ? '#fff7ed' : '#ffffff')}
-              >
-                {u}
-              </button>
-            ))}
-          </div>
+          {quickUsers.map((item) => (
+            <button
+              key={item.username}
+              className="demo-btn"
+              onClick={() => handleLogin(item.username, 'password')}
+              disabled={loading}
+            >
+              <strong>{item.username}</strong>
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
-
       </div>
     </div>
   );

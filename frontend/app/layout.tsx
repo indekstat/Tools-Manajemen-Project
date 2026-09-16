@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import Sidebar from '../components/Sidebar';
+import AuthGuard from '../components/AuthGuard';
 
 export const metadata: Metadata = {
   title: 'InDeTrack - Project Tracking System',
@@ -20,12 +21,14 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body>
-        <div className="app-container">
-          <Sidebar />
-          <div className="main-content">
-            {children}
+        <AuthGuard>
+          <div className="app-container">
+            <Sidebar />
+            <div className="main-content">
+              {children}
+            </div>
           </div>
-        </div>
+        </AuthGuard>
       </body>
     </html>
   );

@@ -83,7 +83,7 @@ export default function LoginPage() {
             <input
               className="input-field"
               type="text"
-              placeholder="e.g. gov_user"
+              placeholder="e.g. titis_pratiknyo"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -111,33 +111,29 @@ export default function LoginPage() {
           <div style={{ gridColumn: '1 / -1', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
             QUICK LOGIN AKUN TEST:
           </div>
-          <button className="demo-btn" onClick={() => handleLogin('superadmin', 'password')}>
-            <strong>Superadmin</strong>
-            <span>Full Control</span>
+          <button className="demo-btn" onClick={() => handleLogin('admin', 'adminpassword')}>
+            <strong>System Admin</strong>
+            <span>Superadmin</span>
           </button>
-          <button className="demo-btn" onClick={() => handleLogin('ir_user', 'password')}>
+          <button className="demo-btn" onClick={() => handleLogin('ir_user', 'irpassword')}>
             <strong>IR (Marketing)</strong>
-            <span>Add Projects</span>
+            <span>Marketing</span>
           </button>
-          <button className="demo-btn" onClick={() => handleLogin('gov_user', 'password')}>
-            <strong>Gov User</strong>
-            <span>Divisi Govt</span>
+          <button className="demo-btn" onClick={() => handleLogin('titis_pratiknyo', 'user123')}>
+            <strong>Titis Pratiknyo</strong>
+            <span>Gov Chief</span>
           </button>
-          <button className="demo-btn" onClick={() => handleLogin('pol_user', 'password')}>
+          <button className="demo-btn" onClick={() => handleLogin('m_ali_mahmudin', 'user123')}>
+            <strong>M Ali Mahmudin</strong>
+            <span>Gov Head</span>
+          </button>
+          <button className="demo-btn" onClick={() => handleLogin('pol_user', 'polpassword')}>
             <strong>Pol User</strong>
-            <span>Divisi Political</span>
+            <span>Political</span>
           </button>
-          <button className="demo-btn" onClick={() => handleLogin('finance_user', 'password')}>
+          <button className="demo-btn" onClick={() => handleLogin('finance_user', 'financepassword')}>
             <strong>Finance User</strong>
-            <span>SPK & BAST</span>
-          </button>
-          <button className="demo-btn" onClick={() => handleLogin('systech_user', 'password')}>
-            <strong>Systech User</strong>
-            <span>Dashboard Links</span>
-          </button>
-          <button className="demo-btn" onClick={() => handleLogin('viewer', 'password')}>
-            <strong>Viewer</strong>
-            <span>Read-Only</span>
+            <span>Keuangan</span>
           </button>
         </div>
       </div>

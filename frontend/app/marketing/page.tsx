@@ -382,7 +382,7 @@ const getTahapanRank = (key: string) => {
     });
 
     rawBiddingProjects.forEach((p) => {
-      const stage = p.tahapan || 'Upload PQ';
+      const stage = getProjectTahapan(p);
       if (!map[stage]) {
         map[stage] = { count: 0, totalNilai: 0, projects: [] };
       }
@@ -396,16 +396,35 @@ const getTahapanRank = (key: string) => {
 
   // Calendar events for Seleksi Deadlines
   const biddingCalendarEvents = useMemo(() => {
-    return rawBiddingProjects
-      .filter((p) => p.deadline_pengumuman && p.status_project === 'Ongoing')
-      .map((p) => ({
-        id: p.id,
-        dateStr: p.deadline_pengumuman,
-        project: p,
-        type: 'bidding' as const,
-        title: p.nama_pekerjaan,
-        stageOrPic: p.tahapan || 'Seleksi',
-      }));
+    const events: any[] = [];
+    rawBiddingProjects.forEach((p) => {
+      if ((p.status_project || 'Ongoing') === 'Ongoing') {
+        if (p.bidding_stages && p.bidding_stages.length > 0) {
+          p.bidding_stages.forEach((st: any) => {
+            if (st.tanggal_deadline && st.status !== 'Selesai') {
+              events.push({
+                id: `${p.id}-${st.id}`,
+                dateStr: st.tanggal_deadline,
+                project: p,
+                type: 'bidding' as const,
+                title: p.nama_pekerjaan,
+                stageOrPic: st.nama_tahapan,
+              });
+            }
+          });
+        } else if (p.deadline_pengumuman) {
+          events.push({
+            id: p.id,
+            dateStr: p.deadline_pengumuman,
+            project: p,
+            type: 'bidding' as const,
+            title: p.nama_pekerjaan,
+            stageOrPic: getProjectTahapan(p) || 'Seleksi',
+          });
+        }
+      }
+    });
+    return events;
   }, [rawBiddingProjects]);
 
   return (
@@ -1329,7 +1348,7 @@ const getTahapanRank = (key: string) => {
                           <td style={{ fontWeight: 600 }}>{p.nama_pekerjaan}</td>
                           <td>{p.pemberi_kerja || '-'}</td>
                           <td style={{ color: '#34d399', fontWeight: 700 }}>Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}</td>
-                          <td>{p.tahapan || 'Upload PQ'}</td>
+                          <td>{getProjectTahapan(p)}</td>
                           <td>{p.status_project || 'Ongoing'}</td>
                           <td style={{ textAlign: 'right' }}>
                             <button

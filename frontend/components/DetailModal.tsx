@@ -42,6 +42,25 @@ export default function DetailModal({ project, onClose, onRefresh }: ProjectDeta
       .catch(() => {});
   }, []);
 
+  const getProjectTahapan = (p: any) => {
+    if (!p) return 'Upload PQ';
+    if (p.bidding_stages && p.bidding_stages.length > 0) {
+      const activeStage = p.bidding_stages.find((st: any) => st.status === 'Onprogress');
+      if (activeStage) return activeStage.nama_tahapan;
+      const selesaiStages = p.bidding_stages.filter((st: any) => st.status === 'Selesai');
+      if (selesaiStages.length > 0) {
+        const sorted = [...selesaiStages].sort((a: any, b: any) => {
+          const TAHAPAN_ORDER = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penyusunan Ustek', 'Upload Ustek'];
+          const rankA = TAHAPAN_ORDER.findIndex((t) => a.nama_tahapan.toLowerCase().includes(t.toLowerCase()));
+          const rankB = TAHAPAN_ORDER.findIndex((t) => b.nama_tahapan.toLowerCase().includes(t.toLowerCase()));
+          return (rankB !== -1 ? rankB : 99) - (rankA !== -1 ? rankA : 99);
+        });
+        return sorted[0].nama_tahapan;
+      }
+    }
+    return p.tahapan || 'Upload PQ';
+  };
+
   const canManageFinance = userRole === 'Finance' || userRole === 'Superadmin';
   const canManageSubstansi = ['Gov', 'Pol', 'Systech', 'Superadmin'].includes(userRole);
 
@@ -282,7 +301,7 @@ export default function DetailModal({ project, onClose, onRefresh }: ProjectDeta
 
               <div className="detail-item">
                 <span className="detail-label">Tahapan Current</span>
-                <span className="detail-value">{project.tahapan || 'Upload PQ'}</span>
+                <span className="detail-value">{getProjectTahapan(project)}</span>
               </div>
 
               <div className="detail-item">

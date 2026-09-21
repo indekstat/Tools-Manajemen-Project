@@ -676,39 +676,13 @@ const getTahapanRank = (key: string) => {
               </div>
 
               {activeTab === 'bidding' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: '1rem' }}>
-                  <div className="input-group">
-                    <label className="input-label">Tahapan Bidding</label>
-                    <SearchableSelect
-                      value={tahapan}
-                      onChange={(val) => setTahapan(val)}
-                      options={['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penyusunan Ustek', 'Upload Ustek']}
-                    />
-                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                   <div className="input-group">
                     <label className="input-label">Status Bidding</label>
                     <SearchableSelect
                       value={statusProject}
                       onChange={(val) => setStatusProject(val)}
                       options={['Ongoing', 'Menang', 'Kalah', 'Batal', 'Tidak Memenuhi Ambang Batas']}
-                    />
-                  </div>
-                  <div className="input-group">
-                    <label className="input-label">Deadline / Pengumuman</label>
-                    <input
-                      className="input-field"
-                      type="date"
-                      value={deadlinePengumuman}
-                      onChange={(e) => setDeadlinePengumuman(e.target.value)}
-                    />
-                  </div>
-                  <div className="input-group">
-                    <label className="input-label">Peringkat</label>
-                    <input
-                      className="input-field"
-                      placeholder="e.g. 1"
-                      value={peringkat}
-                      onChange={(e) => setPeringkat(e.target.value)}
                     />
                   </div>
                 </div>

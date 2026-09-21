@@ -269,6 +269,50 @@ PNC_CACHE_TIME = 0
 PNC_CACHE_TTL = 900  # 15 minutes cache
 LATEST_PNC_TOKEN = None
 
+def get_db_users_as_auth_detail(db: Session) -> List[schemas.AuthUserDetail]:
+    db_users = db.query(models.User).all()
+    dedup_map = {}
+    for u in db_users:
+        clean_name = (u.nama or u.username).strip().lower()
+        is_leader = u.level and u.level.upper() in ["CHIEF", "HEAD"]
+        is_admin = u.role == "Superadmin" or is_leader
+        dept = u.divisi or u.role or "General"
+        role_name = u.role or "Staff"
+        
+        detail = schemas.AuthUserDetail(
+            id=u.id,
+            username=u.username,
+            email=f"{u.username}@indekstat.com",
+            first_name=u.nama or u.username,
+            last_name="",
+            is_active=True,
+            is_staff=is_admin,
+            is_superuser=u.role == "Superadmin",
+            karyawan=schemas.KaryawanProfile(
+                id=u.id,
+                nik="3201xxxxxxxx",
+                nip=f"EMP-00{u.id}",
+                status="PKWT",
+                status_karyawan="PKWT",
+                tipe_kontrak="PKWT",
+                tanggal_gabung=None,
+                departemen=dept,
+                divisi=dept,
+                jabatan=role_name,
+                level_jabatan=u.level or "STAFF",
+                lokasi_kerja="Jakarta",
+                foto=None
+            )
+        )
+        if clean_name not in dedup_map:
+            dedup_map[clean_name] = detail
+        else:
+            existing = dedup_map[clean_name]
+            if "." in existing.username and "." not in u.username:
+                dedup_map[clean_name] = detail
+
+    return list(dedup_map.values())
+
 def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refresh: bool = False):
     global PNC_CACHE_DATA, PNC_CACHE_TIME, LATEST_PNC_TOKEN
     import time
@@ -278,6 +322,8 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
 
     active_token = pnc_token or LATEST_PNC_TOKEN
     if not active_token:
+        if not PNC_CACHE_DATA:
+            PNC_CACHE_DATA = get_db_users_as_auth_detail(db)
         return PNC_CACHE_DATA or []
 
     try:
@@ -365,11 +411,19 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                 )
 
         if results:
-            PNC_CACHE_DATA = results
+            dedup_results = {}
+            for u in results:
+                name_key = f"{u.first_name} {u.last_name}".strip().lower() or u.username.strip().lower()
+                if name_key not in dedup_results:
+                    dedup_results[name_key] = u
+            PNC_CACHE_DATA = list(dedup_results.values())
             PNC_CACHE_TIME = now
-            return results
+            return PNC_CACHE_DATA
     except Exception as e:
         print("Fetch PNC API error:", e)
+
+    if not PNC_CACHE_DATA:
+        PNC_CACHE_DATA = get_db_users_as_auth_detail(db)
 
     return PNC_CACHE_DATA or []
 
@@ -378,6 +432,8 @@ def hris_get_users(background_tasks: BackgroundTasks, db: Session = Depends(get_
     global PNC_CACHE_DATA
     if not PNC_CACHE_DATA:
         PNC_CACHE_DATA = fetch_pnc_employees(db, force_refresh=True)
+    if not PNC_CACHE_DATA:
+        return get_db_users_as_auth_detail(db)
     return PNC_CACHE_DATA or []
 
 @app.get("/users/me", response_model=schemas.UserResponse)

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { fetchWithAuth } from '../../lib/api';
 import { IconUser, IconSearch } from '../../components/Icons';
 
@@ -30,19 +30,31 @@ export default function UsersManagementPage() {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
+  const filteredUsers = useMemo(() => {
+    const seen = new Set<string>();
+    const uniqueList: any[] = [];
+    for (const u of users) {
+      const nameKey = (`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.nama || u.username || '').toLowerCase();
+      if (!seen.has(nameKey)) {
+        seen.add(nameKey);
+        uniqueList.push(u);
+      }
+    }
+
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return true;
-    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.nama || '';
-    const dept = u.karyawan?.divisi || u.karyawan?.departemen || u.divisi || '';
-    const roleStr = u.karyawan?.jabatan || u.role || '';
-    return (
-      fullName.toLowerCase().includes(q) ||
-      (u.username || '').toLowerCase().includes(q) ||
-      roleStr.toLowerCase().includes(q) ||
-      dept.toLowerCase().includes(q)
-    );
-  });
+    if (!q) return uniqueList;
+    return uniqueList.filter((u) => {
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.nama || '';
+      const dept = u.karyawan?.divisi || u.karyawan?.departemen || u.divisi || '';
+      const roleStr = u.karyawan?.jabatan || u.role || '';
+      return (
+        fullName.toLowerCase().includes(q) ||
+        (u.username || '').toLowerCase().includes(q) ||
+        roleStr.toLowerCase().includes(q) ||
+        dept.toLowerCase().includes(q)
+      );
+    });
+  }, [users, searchQuery]);
 
   return (
     <div>

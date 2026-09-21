@@ -348,6 +348,8 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                 email = u.get("email") or f"{username}@indekstat.com"
 
                 dept = k.get("departemen") or k.get("divisi") or "General"
+                if dept == "IR":
+                    dept = "Institutional Relationship"
                 jab = k.get("jabatan") or k.get("level_jabatan") or "STAFF"
 
                 jab_upper = str(jab).upper()

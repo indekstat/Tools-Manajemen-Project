@@ -118,8 +118,10 @@ export default function UsersManagementPage() {
                 ) : (
                   filteredUsers.map((u, idx) => {
                     const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.nama || u.username;
-                    const userRole = u.karyawan?.jabatan || u.role || (u.is_superuser ? 'Superadmin' : u.is_staff ? 'Staff' : 'Karyawan');
-                    const userDivisi = u.karyawan?.divisi || u.karyawan?.departemen || u.divisi || '-';
+                    let userRole = u.karyawan?.jabatan || u.role || (u.is_superuser ? 'Superadmin' : u.is_staff ? 'Staff' : 'Karyawan');
+                    if (userRole === 'IR') userRole = 'Institutional Relationship';
+                    let userDivisi = u.karyawan?.divisi || u.karyawan?.departemen || u.divisi || '-';
+                    if (userDivisi === 'IR') userDivisi = 'Institutional Relationship';
                     const rawLevel = u.karyawan?.level_jabatan || u.level || 'STAFF';
                     const isLeader = ['CHIEF', 'HEAD'].includes(rawLevel.toUpperCase());
 

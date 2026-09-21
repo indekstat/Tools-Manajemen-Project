@@ -66,9 +66,21 @@ def get_current_user(request: Request, token: Optional[str] = Depends(oauth2_sch
 
 def check_role(required_roles: list):
     def role_checker(current_user: models.User = Depends(get_current_user)):
-        if current_user.role in ["Superadmin", "Management"] or (current_user.level and current_user.level.upper() in ["CHIEF", "HEAD"]):
+        user_role = current_user.role or ""
+        user_level = (current_user.level or "").upper()
+        if user_role in ["Superadmin", "Management"] or user_level in ["CHIEF", "HEAD"]:
             return current_user
-        if current_user.role not in required_roles and current_user.role != "Admin":
+
+        allowed_roles = set(required_roles)
+        # Add role aliases for seamless compatibility
+        if "IR" in allowed_roles or "Institutional Relationship" in allowed_roles:
+            allowed_roles.update(["IR", "Institutional Relationship"])
+        if "Gov" in allowed_roles or "Government" in allowed_roles:
+            allowed_roles.update(["Gov", "Government"])
+        if "Pol" in allowed_roles or "Political Science" in allowed_roles or "Politics" in allowed_roles:
+            allowed_roles.update(["Pol", "Political Science", "Politics"])
+
+        if user_role not in allowed_roles and user_role != "Admin":
             raise HTTPException(status_code=403, detail="Not enough permissions")
         return current_user
     return role_checker

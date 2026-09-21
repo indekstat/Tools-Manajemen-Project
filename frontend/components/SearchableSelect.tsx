@@ -66,7 +66,14 @@ export default function SearchableSelect({
   }, [isOpen]);
 
   const handleSelect = (val: string | number) => {
-    onChange(val);
+    if (String(val) === '+ Tambah Baru' || String(val) === 'Tambah Baru') {
+      const customVal = window.prompt('Masukkan nama baru:');
+      if (customVal && customVal.trim()) {
+        onChange(customVal.trim());
+      }
+    } else {
+      onChange(val);
+    }
     setIsOpen(false);
     setSearchQuery('');
   };
@@ -102,10 +109,10 @@ export default function SearchableSelect({
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             fontSize: compact ? '0.85rem' : '0.95rem',
-            color: selectedOption ? 'inherit' : 'var(--text-muted, #94a3b8)',
+            color: selectedOption || value ? 'inherit' : 'var(--text-muted, #94a3b8)',
           }}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption ? selectedOption.label : value ? String(value) : placeholder}
         </span>
         <span style={{ fontSize: '0.75rem', opacity: 0.7, marginLeft: '0.5rem' }}>
           {isOpen ? '▲' : '▼'}
@@ -168,6 +175,7 @@ export default function SearchableSelect({
             ) : (
               filteredOptions.map((opt) => {
                 const isSelected = String(opt.value) === String(value);
+                const isTambahBaru = String(opt.value) === '+ Tambah Baru' || String(opt.value) === 'Tambah Baru';
                 return (
                   <div
                     key={String(opt.value)}
@@ -176,22 +184,23 @@ export default function SearchableSelect({
                       padding: '0.5rem 0.8rem',
                       fontSize: '0.875rem',
                       cursor: 'pointer',
-                      background: isSelected ? '#eff6ff' : 'transparent',
-                      color: isSelected ? '#2563eb' : '#1e293b',
-                      fontWeight: isSelected ? 600 : 400,
+                      background: isSelected ? '#eff6ff' : isTambahBaru ? '#f0f9ff' : 'transparent',
+                      color: isSelected ? '#2563eb' : isTambahBaru ? '#0284c7' : '#1e293b',
+                      fontWeight: isSelected || isTambahBaru ? 600 : 400,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      borderTop: isTambahBaru ? '1px solid #e2e8f0' : 'none',
                       transition: 'background 0.15s ease',
                     }}
                     onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
+                      if (!isSelected) e.currentTarget.style.background = isTambahBaru ? '#e0f2fe' : '#f1f5f9';
                     }}
                     onMouseLeave={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = 'transparent';
+                      if (!isSelected) e.currentTarget.style.background = isTambahBaru ? '#f0f9ff' : 'transparent';
                     }}
                   >
-                    <span>{opt.label}</span>
+                    <span>{isTambahBaru ? `➕ ${opt.label}` : opt.label}</span>
                     {isSelected && <span style={{ fontSize: '0.8rem' }}>✓</span>}
                   </div>
                 );

@@ -17,35 +17,24 @@ export default function LoginPage() {
     const u = userToLogin || username;
     const p = passToLogin || password;
 
-    const tryLogin = async (usr: string, pwd: string) => {
-      const formData = new URLSearchParams();
-      formData.append('username', usr);
-      formData.append('password', pwd);
-
+    try {
       const baseUrl = getApiUrl();
-      const res = await fetch(`${baseUrl}/login`, {
+      const res = await fetch(`${baseUrl}/api/auth/login/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p }),
       });
 
-      if (!res.ok) return null;
-      return await res.json();
-    };
+      const data = await res.json();
 
-    try {
-      let data = await tryLogin(u, p);
-      
-      // Fallback try with default password if quick login
-      if (!data && userToLogin) {
-        data = await tryLogin(u, 'password');
+      if (!res.ok || !data || !data.token) {
+        throw new Error(data?.detail || 'Username atau Password salah (terverifikasi via pnc.indekstat.cloud)');
       }
 
-      if (!data) {
-        throw new Error('Username atau Password salah');
+      localStorage.setItem('token', data.token);
+      if (data.user) {
+        localStorage.setItem('user_info', JSON.stringify(data.user));
       }
-
-      localStorage.setItem('token', data.access_token);
       router.push('/');
     } catch (err: any) {
       setError(err.message);
@@ -53,15 +42,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  const quickUsers = [
-    { username: 'superadmin', role: 'Superadmin', label: 'Full Access' },
-    { username: 'ir_user', role: 'IR (Marketing)', label: 'Bidding & PL' },
-    { username: 'gov_user', role: 'Gov User', label: 'Government' },
-    { username: 'pol_user', role: 'Pol User', label: 'Political' },
-    { username: 'finance_user', role: 'Finance User', label: 'Keuangan' },
-    { username: 'viewer', role: 'Viewer', label: 'Read Only' },
-  ];
 
   return (
     <div className="login-container">
@@ -82,7 +62,7 @@ export default function LoginPage() {
           />
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>InDeTrack</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
-            Masuk untuk mengakses sistem tracking project
+            Masuk dengan Akun HRIS <strong>pnc.indekstat.cloud</strong>
           </p>
         </div>
 
@@ -99,11 +79,11 @@ export default function LoginPage() {
           }}
         >
           <div className="input-group" style={{ marginBottom: '1rem' }}>
-            <label className="input-label">Username</label>
+            <label className="input-label">Username HRIS</label>
             <input
               className="input-field"
               type="text"
-              placeholder="e.g. superadmin"
+              placeholder="e.g. wiicaantales"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -111,7 +91,7 @@ export default function LoginPage() {
           </div>
 
           <div className="input-group" style={{ marginBottom: '1.5rem' }}>
-            <label className="input-label">Password</label>
+            <label className="input-label">Password HRIS</label>
             <input
               className="input-field"
               type="password"
@@ -123,26 +103,12 @@ export default function LoginPage() {
           </div>
 
           <button className="btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '0.85rem' }}>
-            {loading ? 'Memproses...' : 'Masuk ke Dashboard'}
+            {loading ? 'Memproses HRIS Auth...' : 'Masuk ke Dashboard'}
           </button>
         </form>
 
-        {/* QUICK LOGIN CARDS GRID */}
-        <div className="demo-account-grid">
-          <div style={{ gridColumn: '1 / -1', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
-            QUICK LOGIN AKUN TEST:
-          </div>
-          {quickUsers.map((item) => (
-            <button
-              key={item.username}
-              className="demo-btn"
-              onClick={() => handleLogin(item.username, 'password')}
-              disabled={loading}
-            >
-              <strong>{item.username}</strong>
-              <span>{item.label}</span>
-            </button>
-          ))}
+        <div style={{ marginTop: '1.5rem', padding: '0.75rem', borderRadius: '8px', background: 'rgba(2, 132, 199, 0.1)', border: '1px solid rgba(2, 132, 199, 0.3)', color: '#0284c7', fontSize: '0.8rem', textAlign: 'center' }}>
+          🔒 Autentikasi terhubung langsung dengan <strong>pnc.indekstat.cloud</strong>.
         </div>
       </div>
     </div>

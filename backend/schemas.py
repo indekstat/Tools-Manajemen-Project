@@ -21,6 +21,40 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class AuthLoginRequest(BaseModel):
+    username: str
+    password: str
+
+class KaryawanProfile(BaseModel):
+    id: Optional[int] = 10
+    nik: Optional[str] = "3201xxxxxxxx"
+    nip: Optional[str] = "EMP-0010"
+    status: Optional[str] = "Tetap"
+    status_karyawan: Optional[str] = "Tetap"
+    tipe_kontrak: Optional[str] = "PKWTT"
+    tanggal_gabung: Optional[str] = "2022-01-10"
+    departemen: Optional[str] = "IT"
+    divisi: Optional[str] = "Engineering"
+    jabatan: Optional[str] = "Staff"
+    level_jabatan: Optional[str] = "Staff"
+    lokasi_kerja: Optional[str] = "Jakarta"
+    foto: Optional[str] = None
+
+class AuthUserDetail(BaseModel):
+    id: int
+    username: str
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    is_active: bool = True
+    is_staff: bool = False
+    is_superuser: bool = False
+    karyawan: Optional[KaryawanProfile] = None
+
+class AuthLoginResponse(BaseModel):
+    token: str
+    user: AuthUserDetail
+
 class BulkDeleteRequest(BaseModel):
     ids: List[int]
 
@@ -135,6 +169,8 @@ class ProjectBase(BaseModel):
     peringkat: Optional[str] = None
     keterangan_tender: Optional[str] = None
     prioritas: Optional[str] = "Priority"
+    metode_pekerjaan: Optional[str] = None
+    jenis_pekerjaan: Optional[str] = None
 
     status_selesai_substansi: bool = False
     status_selesai_administrasi: bool = False
@@ -172,6 +208,8 @@ class ProjectUpdate(BaseModel):
     peringkat: Optional[str] = None
     keterangan_tender: Optional[str] = None
     prioritas: Optional[str] = None
+    metode_pekerjaan: Optional[str] = None
+    jenis_pekerjaan: Optional[str] = None
 
     status_selesai_substansi: Optional[bool] = None
     status_selesai_administrasi: Optional[bool] = None

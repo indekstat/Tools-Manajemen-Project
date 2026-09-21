@@ -16,7 +16,8 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   
   const headers = new Headers(options.headers || {});
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+    const authHeader = token.startsWith('Token ') || token.startsWith('Bearer ') ? token : `Token ${token}`;
+    headers.set('Authorization', authHeader);
   }
   headers.set('Content-Type', 'application/json');
 

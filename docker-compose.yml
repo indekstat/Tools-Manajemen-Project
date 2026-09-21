@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8145:8000"
+    environment:
+      - HRIS_API_URL=https://pnc.indekstat.cloud
     volumes:
       - ./backend/project_tracking.db:/app/project_tracking.db
     restart: always

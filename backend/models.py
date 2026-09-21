@@ -31,6 +31,8 @@ class Project(Base):
     peringkat = Column(String, nullable=True)
     keterangan_tender = Column(Text, nullable=True)
     prioritas = Column(String, default="Priority") # Priority, Non-Priority, Deal Undertable
+    metode_pekerjaan = Column(String, nullable=True) # Survey, Kajian, Development
+    jenis_pekerjaan = Column(String, nullable=True) # IT, Bisnis Intelligence, Indeks, Peta Potensi, Evaluasi Program, Manajemen, Pendampingan, Survei Politik, Analisa Dapil, Kelola Relawan
     
     # Ustek fields
     status_selesai_substansi = Column(Boolean, default=False)

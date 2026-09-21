@@ -123,6 +123,19 @@ export default function DetailModal({ project, onClose, onRefresh }: ProjectDeta
     if (onRefresh) onRefresh();
   };
 
+  const handleUpdateBiddingStageInModal = async (stageId: number, fields: Record<string, any>) => {
+    await fetchWithAuth(`/bidding-stages/${stageId}`, {
+      method: 'PUT',
+      body: JSON.stringify(fields),
+    });
+    if (onRefresh) onRefresh();
+  };
+
+  const handleDeleteBiddingStageInModal = async (stageId: number) => {
+    await fetchWithAuth(`/bidding-stages/${stageId}`, { method: 'DELETE' });
+    if (onRefresh) onRefresh();
+  };
+
   // Handlers for Billings
   const handleAddBilling = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,6 +190,16 @@ export default function DetailModal({ project, onClose, onRefresh }: ProjectDeta
               <span className="badge" style={{ background: '#f1f5f9', color: '#334155' }}>
                 Mekanisme: {project.jenis_mekanisme || 'Bidding'}
               </span>
+              {project.metode_pekerjaan && (
+                <span className="badge" style={{ background: '#e0e7ff', color: '#3730a3' }}>
+                  Metode: {project.metode_pekerjaan}
+                </span>
+              )}
+              {project.jenis_pekerjaan && (
+                <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>
+                  Jenis: {project.jenis_pekerjaan}
+                </span>
+              )}
               <span className={`badge ${urgensi.color}`}>
                 Deadline: {urgensi.label}
               </span>
@@ -226,6 +249,16 @@ export default function DetailModal({ project, onClose, onRefresh }: ProjectDeta
         {activeTab === 'info' && (
           <div className="modal-body">
             <div className="detail-grid">
+              <div className="detail-item">
+                <span className="detail-label">Metode Pekerjaan</span>
+                <span className="detail-value" style={{ fontWeight: 700, color: '#3b82f6' }}>{project.metode_pekerjaan || '-'}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Jenis Pekerjaan</span>
+                <span className="detail-value" style={{ fontWeight: 700, color: '#d97706' }}>{project.jenis_pekerjaan || '-'}</span>
+              </div>
+
               <div className="detail-item">
                 <span className="detail-label">Status Bidding</span>
                 <span className={`badge ${
@@ -421,6 +454,74 @@ export default function DetailModal({ project, onClose, onRefresh }: ProjectDeta
                 )}
               </div>
             </form>
+
+            {project.bidding_stages && project.bidding_stages.length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h4 className="detail-section-title">Record Tahapan Bidding ({project.bidding_stages.length} Tahapan)</h4>
+                <div className="table-container" style={{ marginBottom: '1rem' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '40px' }}>No.</th>
+                        <th>Nama Tahapan Bidding</th>
+                        <th>Tanggal Deadline</th>
+                        <th>Status Tahapan</th>
+                        <th>Keterangan</th>
+                        <th style={{ textAlign: 'right' }}>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {project.bidding_stages.map((bst: any, idx: number) => (
+                        <tr key={bst.id || idx}>
+                          <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>{idx + 1}.</td>
+                          <td style={{ fontWeight: 600 }}>{bst.nama_tahapan}</td>
+                          <td>
+                            <input
+                              className="input-field"
+                              type="date"
+                              style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.8rem', width: '140px' }}
+                              value={bst.tanggal_deadline || ''}
+                              onChange={(e) => handleUpdateBiddingStageInModal(bst.id, { tanggal_deadline: e.target.value || null })}
+                            />
+                          </td>
+                          <td>
+                            <SearchableSelect
+                              compact
+                              style={{ margin: 0, width: '150px' }}
+                              value={bst.status || 'Onprogress'}
+                              onChange={(val) => handleUpdateBiddingStageInModal(bst.id, { status: val })}
+                              options={[
+                                { value: 'Onprogress', label: '🟡 Onprogress' },
+                                { value: 'Selesai', label: '🟢 Selesai' },
+                              ]}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="input-field"
+                              placeholder="Notes..."
+                              style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.8rem', width: '100%' }}
+                              defaultValue={bst.keterangan || ''}
+                              onBlur={(e) => handleUpdateBiddingStageInModal(bst.id, { keterangan: e.target.value || null })}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              className="btn-logout"
+                              style={{ padding: '0.2rem 0.5rem', width: 'auto', display: 'inline-flex', alignItems: 'center' }}
+                              onClick={() => handleDeleteBiddingStageInModal(bst.id)}
+                              title="Hapus Tahapan"
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <h4 className="detail-section-title">Daftar Tahapan Project</h4>
             <div className="table-container">

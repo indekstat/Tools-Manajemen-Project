@@ -18,7 +18,7 @@ function SidebarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentView = searchParams.get('view') || 'worksheet';
-  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; role: string; level?: string } | null>(null);
 
   useEffect(() => {
     if (pathname === '/login') return;
@@ -46,13 +46,13 @@ function SidebarContent() {
   };
 
   const navItems = [
-    { label: 'Dashboard', path: '/', getIcon: (color: string) => <IconDashboard size={18} color={color} />, defaultColor: '#6366f1', roles: ['IR', 'Gov', 'Pol', 'Finance', 'Systech', 'Viewer', 'Superadmin'] },
+    { label: 'Dashboard', path: '/', getIcon: (color: string) => <IconDashboard size={18} color={color} />, defaultColor: '#6366f1', roles: ['IR', 'Gov', 'Pol', 'Finance', 'Systech', 'Viewer', 'Superadmin', 'Management'] },
     {
-      label: 'Bidding & PL (IR)',
+      label: 'Kontrol Bidding',
       path: '/marketing',
       getIcon: (color: string) => <IconBidding size={18} color={color} />,
       defaultColor: '#f97316',
-      roles: ['IR', 'Superadmin'],
+      roles: ['IR', 'Superadmin', 'Management'],
       subItems: [
         { label: 'Overview', tab: 'overview' },
         { label: 'Lembar Kerja Bidding', tab: 'worksheet' }
@@ -63,7 +63,7 @@ function SidebarContent() {
       path: '/ustek',
       getIcon: (color: string) => <IconUstek size={18} color={color} />,
       defaultColor: '#0284c7',
-      roles: ['Gov', 'Pol', 'IR', 'Systech', 'Superadmin', 'Viewer'],
+      roles: ['Gov', 'Pol', 'IR', 'Systech', 'Superadmin', 'Viewer', 'Management'],
       subItems: [
         { label: 'Overview', tab: 'overview' },
         { label: 'Lembar Kerja Ustek', tab: 'worksheet' }
@@ -74,7 +74,7 @@ function SidebarContent() {
       path: '/pekerjaan-menang',
       getIcon: (color: string) => <IconTrophy size={18} color={color} />,
       defaultColor: '#10b981',
-      roles: ['IR', 'Gov', 'Pol', 'Finance', 'Systech', 'Viewer', 'Superadmin'],
+      roles: ['IR', 'Gov', 'Pol', 'Finance', 'Systech', 'Viewer', 'Superadmin', 'Management'],
       subItems: [
         { label: 'Overview', tab: 'overview' },
         { label: 'Lembar Kerja', tab: 'worksheet' }
@@ -85,14 +85,14 @@ function SidebarContent() {
       path: '/admin',
       getIcon: (color: string) => <IconFinance size={18} color={color} />,
       defaultColor: '#8b5cf6',
-      roles: ['Finance', 'Superadmin', 'IR'],
+      roles: ['Finance', 'Superadmin', 'IR', 'Management'],
       subItems: [
         { label: 'Overview', tab: 'overview' },
         { label: 'Lembar Kerja Penagihan', tab: 'worksheet' }
       ]
     },
-    { label: 'Dashboard Project', path: '/dashboards', getIcon: (color: string) => <IconGlobe size={18} color={color} />, defaultColor: '#06b6d4', roles: ['IR', 'Gov', 'Pol', 'Finance', 'Systech', 'Viewer', 'Superadmin'] },
-    { label: 'Data Karyawan', path: '/users', getIcon: (color: string) => <IconUser size={18} color={color} />, defaultColor: '#ec4899', roles: ['IR', 'Gov', 'Pol', 'Finance', 'Systech', 'Viewer', 'Superadmin'] },
+    { label: 'Dashboard Project', path: '/dashboards', getIcon: (color: string) => <IconGlobe size={18} color={color} />, defaultColor: '#06b6d4', roles: ['IR', 'Gov', 'Pol', 'Finance', 'Systech', 'Viewer', 'Superadmin', 'Management'] },
+    { label: 'Data Karyawan', path: '/users', getIcon: (color: string) => <IconUser size={18} color={color} />, defaultColor: '#ec4899', roles: ['*'] },
   ];
 
   return (
@@ -119,7 +119,9 @@ function SidebarContent() {
 
       <nav className="sidebar-nav">
         {navItems.map((item) => {
-          if (user && !item.roles.includes(user.role)) return null;
+          const isSuperOrLeader = user?.role === 'Superadmin' || user?.level === 'CHIEF' || user?.level === 'HEAD';
+          const isAllowed = isSuperOrLeader || item.roles.includes('*') || item.roles.includes(user?.role || '');
+          if (user && !isAllowed) return null;
 
           const isParentActive = pathname === item.path;
           const iconColor = isParentActive ? '#ffffff' : item.defaultColor;

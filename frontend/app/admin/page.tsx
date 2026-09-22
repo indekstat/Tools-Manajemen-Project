@@ -169,26 +169,6 @@ function FinanceContent() {
               <span className="stat-sub">SPK, BAST, & Referensi</span>
             </div>
           </div>
-
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <IconUser size={20} color="#8b5cf6" /> Penugasan PIC Kontrol Penagihan
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-              {internalUsers.map((u) => {
-                const picProjects = projects.filter((p) => p.pic_admin === u.nama || p.pic_admin === u.username);
-                return (
-                  <div key={u.id} style={{ padding: '0.85rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontWeight: 700, color: '#1e293b' }}>👤 {u.nama || u.username}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{u.divisi || u.role}</div>
-                    <div style={{ marginTop: '0.5rem', fontWeight: 600, color: '#8b5cf6' }}>
-                      {picProjects.length} Project Managed
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       ) : (
         /* LEMBAR KERJA KONTROL PENAGIHAN VIEW */

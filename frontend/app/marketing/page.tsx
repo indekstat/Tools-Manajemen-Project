@@ -6,7 +6,7 @@ import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
 import CalendarWidget from '../../components/CalendarWidget';
-import { IconTarget, IconFileText, IconFilter, IconFolder, IconChevronDown, IconChevronRight, IconUstek, IconEye, IconSearch, IconTrophy, IconClock, IconGlobe, IconUser, IconCalendar, IconTrash } from '../../components/Icons';
+import { IconTarget, IconFileText, IconFilter, IconFolder, IconChevronDown, IconChevronRight, IconUstek, IconEye, IconSearch, IconTrophy, IconClock, IconGlobe, IconUser, IconCalendar, IconTrash, IconChart } from '../../components/Icons';
 
 export default function MarketingPage() {
   return (
@@ -372,26 +372,45 @@ const getTahapanRank = (key: string) => {
     };
   }, [rawBiddingProjects, rawPlProjects]);
 
-  // Tahapan Seleksi Breakdown for Overview
+  // Tahapan Seleksi Breakdown (Ongoing vs Total Agregat)
   const tahapanSeleksiBreakdown = useMemo(() => {
     const standardStages = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penyusunan Ustek', 'Upload Ustek'];
-    const map: Record<string, { count: number; totalNilai: number; projects: any[] }> = {};
+    const ongoingMap: Record<string, { count: number; totalNilai: number; projects: any[] }> = {};
+    const totalMap: Record<string, { count: number; totalNilai: number; projects: any[] }> = {};
 
     standardStages.forEach((s) => {
-      map[s] = { count: 0, totalNilai: 0, projects: [] };
+      ongoingMap[s] = { count: 0, totalNilai: 0, projects: [] };
+      totalMap[s] = { count: 0, totalNilai: 0, projects: [] };
+    });
+
+    const ongoingBidding = rawBiddingProjects.filter((p) => (p.status_project || 'Ongoing') === 'Ongoing');
+
+    ongoingBidding.forEach((p) => {
+      const stage = getProjectTahapan(p);
+      if (!ongoingMap[stage]) {
+        ongoingMap[stage] = { count: 0, totalNilai: 0, projects: [] };
+      }
+      ongoingMap[stage].count += 1;
+      ongoingMap[stage].totalNilai += p.nilai_kontrak || 0;
+      ongoingMap[stage].projects.push(p);
     });
 
     rawBiddingProjects.forEach((p) => {
       const stage = getProjectTahapan(p);
-      if (!map[stage]) {
-        map[stage] = { count: 0, totalNilai: 0, projects: [] };
+      if (!totalMap[stage]) {
+        totalMap[stage] = { count: 0, totalNilai: 0, projects: [] };
       }
-      map[stage].count += 1;
-      map[stage].totalNilai += p.nilai_kontrak || 0;
-      map[stage].projects.push(p);
+      totalMap[stage].count += 1;
+      totalMap[stage].totalNilai += p.nilai_kontrak || 0;
+      totalMap[stage].projects.push(p);
     });
 
-    return map;
+    return {
+      ongoingMap,
+      totalMap,
+      totalOngoing: ongoingBidding.length,
+      totalBiddingCount: rawBiddingProjects.length,
+    };
   }, [rawBiddingProjects]);
 
   // Calendar events for Seleksi Deadlines
@@ -468,18 +487,23 @@ const getTahapanRank = (key: string) => {
           {/* TAHAPAN SELESI & PRIORITAS SELEKSI OVERVIEW */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
             
-            {/* CARD 1: BREAKDOWN TAHAPAN SELEKSI */}
+            {/* CARD 1: BREAKDOWN TAHAPAN SELEKSI ONGOING */}
             <div className="glass-card">
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <IconUstek size={20} color="#0284c7" /> Monitoring Tahapan Seleksi
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <IconUstek size={18} color="#0284c7" /> Tahapan Bidding (Ongoing)
+                </h3>
+                <span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontWeight: 700, fontSize: '0.8rem' }}>
+                  ⚡ {tahapanSeleksiBreakdown.totalOngoing} Ongoing
+                </span>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {Object.keys(tahapanSeleksiBreakdown).map((stageName) => {
-                  const data = tahapanSeleksiBreakdown[stageName];
-                  const pct = rawBiddingProjects.length > 0 ? Math.round((data.count / rawBiddingProjects.length) * 100) : 0;
+                {Object.keys(tahapanSeleksiBreakdown.ongoingMap).map((stageName) => {
+                  const data = tahapanSeleksiBreakdown.ongoingMap[stageName];
+                  const pct = tahapanSeleksiBreakdown.totalOngoing > 0 ? Math.round((data.count / tahapanSeleksiBreakdown.totalOngoing) * 100) : 0;
                   return (
                     <div
-                      key={stageName}
+                      key={`ongoing_${stageName}`}
                       style={{
                         padding: '0.75rem',
                         background: '#f8fafc',
@@ -488,7 +512,7 @@ const getTahapanRank = (key: string) => {
                         cursor: 'pointer',
                         transition: 'all 0.15s ease'
                       }}
-                      onClick={() => setDrilldownModal({ title: `📋 Tahapan Seleksi: ${stageName}`, subtitle: `Total: ${data.count} Project (${formatCurrencySmart(data.totalNilai)})`, projects: data.projects })}
+                      onClick={() => setDrilldownModal({ title: `📋 Tahapan Bidding Ongoing: ${stageName}`, subtitle: `Total: ${data.count} Project Ongoing (${formatCurrencySmart(data.totalNilai)})`, projects: data.projects })}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                         <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#1e293b' }}>
@@ -512,10 +536,59 @@ const getTahapanRank = (key: string) => {
               </div>
             </div>
 
-            {/* CARD 2: BREAKDOWN PRIORITAS SELEKSI */}
+            {/* CARD 2: BREAKDOWN TAHAPAN SELEKSI AGREGAT TOTAL */}
             <div className="glass-card">
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <IconTarget size={20} color="#6366f1" /> Breakdown Prioritas Seleksi
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <IconChart size={18} color="#6366f1" /> Tahapan Bidding (Agregat Total)
+                </h3>
+                <span className="badge" style={{ background: '#e0e7ff', color: '#3730a3', fontWeight: 700, fontSize: '0.8rem' }}>
+                  📊 {tahapanSeleksiBreakdown.totalBiddingCount} Total Tender
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {Object.keys(tahapanSeleksiBreakdown.totalMap).map((stageName) => {
+                  const data = tahapanSeleksiBreakdown.totalMap[stageName];
+                  const pct = tahapanSeleksiBreakdown.totalBiddingCount > 0 ? Math.round((data.count / tahapanSeleksiBreakdown.totalBiddingCount) * 100) : 0;
+                  return (
+                    <div
+                      key={`total_${stageName}`}
+                      style={{
+                        padding: '0.75rem',
+                        background: '#f8fafc',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onClick={() => setDrilldownModal({ title: `📋 Tahapan Bidding Agregat Total: ${stageName}`, subtitle: `Total: ${data.count} Project (${formatCurrencySmart(data.totalNilai)})`, projects: data.projects })}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#1e293b' }}>
+                          🔹 {stageName}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#6366f1' }}>
+                            {formatCurrencySmart(data.totalNilai)}
+                          </span>
+                          <span className="badge" style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '0.8rem' }}>
+                            {data.count} Proj ({pct}%)
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, background: '#6366f1', height: '100%' }} title={`${stageName}: ${pct}%`} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* CARD 3: BREAKDOWN PRIORITAS SELEKSI */}
+            <div className="glass-card">
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <IconTarget size={18} color="#f59e0b" /> Breakdown Prioritas Seleksi
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -532,24 +605,9 @@ const getTahapanRank = (key: string) => {
                 </div>
               </div>
             </div>
-
           </div>
 
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <IconUser size={20} color="#0284c7" /> Daftar Karyawan / User Management
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-              Jumlah Karyawan terdaftar: <strong>{internalUsers.length} Orang</strong>. Mengelola PIC untuk penugasan Seleksi & Ustek.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {internalUsers.map((u) => (
-                <span key={u.id} className="badge" style={{ background: '#e0f2fe', color: '#0369a1', padding: '0.4rem 0.6rem' }}>
-                  👤 {u.nama || u.username} ({u.divisi || u.role})
-                </span>
-              ))}
-            </div>
-          </div>
+
 
           <div>
             <CalendarWidget

@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [drilldownModal, setDrilldownModal] = useState<{ title: string; subtitle?: string; projects: any[] } | null>(null);
+  const [chartMetric, setChartMetric] = useState<'count' | 'value'>('count');
 
   useEffect(() => {
     loadProjects();
@@ -158,7 +159,12 @@ export default function Dashboard() {
 
     let totalSudahCair = 0;
     let totalHarusDitagihBulanIni = 0;
+    let sudahCairBulanIni = 0;
+    let sisaBelumCairBulanIni = 0;
+
     const currentMonthBillings: any[] = [];
+    const currentMonthPaidBillings: any[] = [];
+    const currentMonthUnpaidBillings: any[] = [];
     const paidProjectsList: any[] = [];
 
     projects.forEach((p) => {
@@ -173,12 +179,21 @@ export default function Dashboard() {
           const bDate = new Date(b.tanggal_penagihan);
           if (bDate.getFullYear() === currentYear && bDate.getMonth() + 1 === currentMonth) {
             totalHarusDitagihBulanIni += b.nominal || 0;
-            currentMonthBillings.push({
+            const item = {
               ...b,
               projectName: p.nama_pekerjaan,
               pemberiKerja: p.pemberi_kerja,
               project: p,
-            });
+            };
+            currentMonthBillings.push(item);
+
+            if (b.status === 'Sudah dibayarkan') {
+              sudahCairBulanIni += b.nominal || 0;
+              currentMonthPaidBillings.push(item);
+            } else {
+              sisaBelumCairBulanIni += b.nominal || 0;
+              currentMonthUnpaidBillings.push(item);
+            }
           }
         }
       });
@@ -200,7 +215,11 @@ export default function Dashboard() {
       totalSudahCair,
       sisaTagihanBelumDibayar,
       totalHarusDitagihBulanIni,
+      sudahCairBulanIni,
+      sisaBelumCairBulanIni,
       currentMonthBillings,
+      currentMonthPaidBillings,
+      currentMonthUnpaidBillings,
       paidProjectsList,
       unpaidProjectsList,
       currentMonthName,
@@ -267,25 +286,35 @@ export default function Dashboard() {
         return d.getMonth() + 1 === monthNum && d.getFullYear() === currentYear;
       });
 
+      const startingNilai = startingProjects.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
+
       const endingProjects = wonProjects.filter((p) => {
         const dStr = p.tanggal_spk_berakhir;
         if (!dStr) return false;
         const d = new Date(dStr);
         return d.getMonth() + 1 === monthNum && d.getFullYear() === currentYear;
       });
+      const endingNilai = endingProjects.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
 
       return {
         monthName: `${name} ${currentYear}`,
         monthShort: name,
         startingCount: startingProjects.length,
         startingProjects,
+        startingNilai,
         endingCount: endingProjects.length,
         endingProjects,
+        endingNilai,
       };
     });
 
     const maxStarting = Math.max(1, ...monthlySPK.map((m) => m.startingCount));
     const maxEnding = Math.max(1, ...monthlySPK.map((m) => m.endingCount));
+    const maxStartingNilai = Math.max(1, ...monthlySPK.map((m) => m.startingNilai));
+    const maxEndingNilai = Math.max(1, ...monthlySPK.map((m) => m.endingNilai));
+
+    const totalStartNilai = monthlySPK.reduce((sum, m) => sum + m.startingNilai, 0);
+    const totalEndNilai = monthlySPK.reduce((sum, m) => sum + m.endingNilai, 0);
 
     return {
       minProject,
@@ -295,6 +324,10 @@ export default function Dashboard() {
       monthlySPK,
       maxStarting,
       maxEnding,
+      maxStartingNilai,
+      maxEndingNilai,
+      totalStartNilai,
+      totalEndNilai,
       currentYear,
     };
   }, [wonProjects]);
@@ -696,23 +729,53 @@ export default function Dashboard() {
 
         {/* PART B & C: GRAFIK MULTI LINE CHART TIMELINE BULANAN SPK MULAI & SPK BERAKHIR */}
         {(() => {
-          const yMax = Math.max(1, Math.ceil(Math.max(spkAndValueMetrics.maxStarting, spkAndValueMetrics.maxEnding) * 1.25));
+          const isValueMode = chartMetric === 'value';
+          const rawMax = isValueMode
+            ? Math.max(spkAndValueMetrics.maxStartingNilai, spkAndValueMetrics.maxEndingNilai)
+            : Math.max(spkAndValueMetrics.maxStarting, spkAndValueMetrics.maxEnding);
+          
+          const yMax = isValueMode
+            ? Math.max(1, rawMax * 1.2)
+            : Math.max(1, Math.ceil(rawMax * 1.25));
+
           const svgWidth = 800;
           const svgHeight = 280;
-          const padding = { top: 35, right: 30, bottom: 45, left: 45 };
+          const padding = { top: 35, right: 35, bottom: 45, left: isValueMode ? 75 : 45 };
           const graphWidth = svgWidth - padding.left - padding.right;
           const graphHeight = svgHeight - padding.top - padding.bottom;
 
           const pointsStart = spkAndValueMetrics.monthlySPK.map((m, i) => {
+            const val = isValueMode ? m.startingNilai : m.startingCount;
             const x = padding.left + (i * graphWidth) / (spkAndValueMetrics.monthlySPK.length - 1);
-            const y = padding.top + graphHeight - (m.startingCount / yMax) * graphHeight;
-            return { x, y, month: m.monthShort, count: m.startingCount, projects: m.startingProjects, monthName: m.monthName };
+            const y = padding.top + graphHeight - (val / yMax) * graphHeight;
+            return {
+              x,
+              y,
+              month: m.monthShort,
+              count: m.startingCount,
+              nilai: m.startingNilai,
+              val,
+              valLabel: isValueMode ? formatCurrencySmart(m.startingNilai) : m.startingCount,
+              projects: m.startingProjects,
+              monthName: m.monthName
+            };
           });
 
           const pointsEnd = spkAndValueMetrics.monthlySPK.map((m, i) => {
+            const val = isValueMode ? m.endingNilai : m.endingCount;
             const x = padding.left + (i * graphWidth) / (spkAndValueMetrics.monthlySPK.length - 1);
-            const y = padding.top + graphHeight - (m.endingCount / yMax) * graphHeight;
-            return { x, y, month: m.monthShort, count: m.endingCount, projects: m.endingProjects, monthName: m.monthName };
+            const y = padding.top + graphHeight - (val / yMax) * graphHeight;
+            return {
+              x,
+              y,
+              month: m.monthShort,
+              count: m.endingCount,
+              nilai: m.endingNilai,
+              val,
+              valLabel: isValueMode ? formatCurrencySmart(m.endingNilai) : m.endingCount,
+              projects: m.endingProjects,
+              monthName: m.monthName
+            };
           });
 
           const buildPath = (pts: typeof pointsStart) => {
@@ -748,37 +811,75 @@ export default function Dashboard() {
           const totalStartCount = spkAndValueMetrics.monthlySPK.reduce((sum, m) => sum + m.startingCount, 0);
           const totalEndCount = spkAndValueMetrics.monthlySPK.reduce((sum, m) => sum + m.endingCount, 0);
 
-          const yTicks = Array.from(new Set([0, Math.ceil(yMax / 2), yMax])).sort((a, b) => a - b);
+          const yTicks = isValueMode
+            ? [0, yMax / 2, yMax]
+            : Array.from(new Set([0, Math.ceil(yMax / 2), yMax])).sort((a, b) => a - b);
 
           return (
             <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-              {/* Header & Legend */}
+              {/* Header & Metric Switcher Toggle */}
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
                 <div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <IconChart size={20} color="var(--primary-color)" /> Timeline Bulanan Project (Multi-Line Chart)
                   </h3>
                   <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0.2rem 0 0 0' }}>
-                    Perbandingan tren akumulasi project mulai dan project berakhir sepanjang tahun {spkAndValueMetrics.currentYear}
+                    Perbandingan tren {isValueMode ? 'akumulasi nilai kontrak (Rp)' : 'akumulasi jumlah project'} mulai & berakhir tahun {spkAndValueMetrics.currentYear}
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                {/* Metric Switcher Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <button
+                      type="button"
+                      onClick={() => setChartMetric('count')}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: !isValueMode ? '#ffffff' : 'transparent',
+                        color: !isValueMode ? '#0284c7' : '#64748b',
+                        boxShadow: !isValueMode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      📊 Jumlah Project
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartMetric('value')}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: isValueMode ? '#ffffff' : 'transparent',
+                        color: isValueMode ? '#0284c7' : '#64748b',
+                        boxShadow: isValueMode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      💰 Nilai Project (Rp)
+                    </button>
+                  </div>
+
                   {/* Legend SPK Mulai */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 700, color: '#0284c7', background: '#f0f9ff', padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid #bae6fd' }}>
                     <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#0284c7', display: 'inline-block' }} />
-                    <span>SPK Mulai ({totalStartCount} Project)</span>
+                    <span>SPK Mulai ({isValueMode ? formatCurrencySmart(spkAndValueMetrics.totalStartNilai) : `${totalStartCount} Project`})</span>
                   </div>
 
                   {/* Legend SPK Berakhir */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 700, color: '#d97706', background: '#fffbeb', padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid #fef3c7' }}>
                     <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
-                    <span>SPK Berakhir ({totalEndCount} Project)</span>
+                    <span>SPK Berakhir ({isValueMode ? formatCurrencySmart(spkAndValueMetrics.totalEndNilai) : `${totalEndCount} Project`})</span>
                   </div>
-
-                  <span className="badge" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.75rem' }}>
-                    Tahun {spkAndValueMetrics.currentYear}
-                  </span>
                 </div>
               </div>
 
@@ -805,11 +906,12 @@ export default function Dashboard() {
                   {/* Horizontal Grid Lines & Y Axis Labels */}
                   {yTicks.map((tickVal) => {
                     const y = padding.top + graphHeight - (tickVal / yMax) * graphHeight;
+                    const labelStr = isValueMode ? formatCurrencySmart(tickVal) : tickVal;
                     return (
                       <g key={`ytick_${tickVal}`}>
                         <line x1={padding.left} y1={y} x2={svgWidth - padding.right} y2={y} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
                         <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="11" fontWeight="600" fill="#94a3b8">
-                          {tickVal}
+                          {labelStr}
                         </text>
                       </g>
                     );
@@ -838,14 +940,14 @@ export default function Dashboard() {
                     <g
                       key={`pt_start_${p.month}`}
                       style={{ cursor: p.count > 0 ? 'pointer' : 'default' }}
-                      onClick={() => p.count > 0 && setDrilldownModal({ title: `📅 Project Mulai Bulan ${p.monthName}`, subtitle: `Total: ${p.count} project dimulai`, projects: p.projects })}
+                      onClick={() => p.count > 0 && setDrilldownModal({ title: `📅 Project Mulai Bulan ${p.monthName}`, subtitle: `Total: ${p.count} Project (${formatCurrencySmart(p.nilai)})`, projects: p.projects })}
                     >
                       <circle cx={p.x} cy={p.y} r="5" fill="#ffffff" stroke="#0284c7" strokeWidth="3" />
-                      {p.count > 0 && (
+                      {p.val > 0 && (
                         <g>
-                          <rect x={p.x - 10} y={p.y - 20} width="20" height="15" rx="3" fill="#0284c7" />
-                          <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize="10" fontWeight="800" fill="#ffffff">
-                            {p.count}
+                          <rect x={p.x - (isValueMode ? 28 : 10)} y={p.y - 20} width={isValueMode ? 56 : 20} height="15" rx="3" fill="#0284c7" />
+                          <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize={isValueMode ? "9" : "10"} fontWeight="800" fill="#ffffff">
+                            {p.valLabel}
                           </text>
                         </g>
                       )}
@@ -857,14 +959,14 @@ export default function Dashboard() {
                     <g
                       key={`pt_end_${p.month}`}
                       style={{ cursor: p.count > 0 ? 'pointer' : 'default' }}
-                      onClick={() => p.count > 0 && setDrilldownModal({ title: `🏁 Project Berakhir Bulan ${p.monthName}`, subtitle: `Total: ${p.count} project berakhir`, projects: p.projects })}
+                      onClick={() => p.count > 0 && setDrilldownModal({ title: `🏁 Project Berakhir Bulan ${p.monthName}`, subtitle: `Total: ${p.count} Project (${formatCurrencySmart(p.nilai)})`, projects: p.projects })}
                     >
                       <circle cx={p.x} cy={p.y} r="5" fill="#ffffff" stroke="#f59e0b" strokeWidth="3" />
-                      {p.count > 0 && (
+                      {p.val > 0 && (
                         <g>
-                          <rect x={p.x - 10} y={p.y + 7} width="20" height="15" rx="3" fill="#d97706" />
-                          <text x={p.x} y={p.y + 18} textAnchor="middle" fontSize="10" fontWeight="800" fill="#ffffff">
-                            {p.count}
+                          <rect x={p.x - (isValueMode ? 28 : 10)} y={p.y + 7} width={isValueMode ? 56 : 20} height="15" rx="3" fill="#d97706" />
+                          <text x={p.x} y={p.y + 18} textAnchor="middle" fontSize={isValueMode ? "9" : "10"} fontWeight="800" fill="#ffffff">
+                            {p.valLabel}
                           </text>
                         </g>
                       )}
@@ -878,7 +980,7 @@ export default function Dashboard() {
                 <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#475569', marginBottom: '0.65rem' }}>
                   📌 Breakdown Detail Per Bulan (Klik untuk lihat project):
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.5rem' }}>
                   {spkAndValueMetrics.monthlySPK.map((m) => (
                     <div
                       key={`bdown_${m.monthName}`}
@@ -896,15 +998,15 @@ export default function Dashboard() {
                       <span style={{ fontWeight: 800, color: '#1e293b' }}>{m.monthShort}</span>
                       <span
                         style={{ color: '#0284c7', fontWeight: 700, cursor: m.startingCount > 0 ? 'pointer' : 'default' }}
-                        onClick={() => m.startingCount > 0 && setDrilldownModal({ title: `📅 Project Mulai Bulan ${m.monthName}`, subtitle: `Total: ${m.startingCount} project dimulai`, projects: m.startingProjects })}
+                        onClick={() => m.startingCount > 0 && setDrilldownModal({ title: `📅 Project Mulai Bulan ${m.monthName}`, subtitle: `Total: ${m.startingCount} Project (${formatCurrencySmart(m.startingNilai)})`, projects: m.startingProjects })}
                       >
-                        🔹 Mulai: {m.startingCount}
+                        🔹 Mulai: {m.startingCount} ({formatCurrencySmart(m.startingNilai)})
                       </span>
                       <span
                         style={{ color: '#d97706', fontWeight: 700, cursor: m.endingCount > 0 ? 'pointer' : 'default' }}
-                        onClick={() => m.endingCount > 0 && setDrilldownModal({ title: `🏁 Project Berakhir Bulan ${m.monthName}`, subtitle: `Total: ${m.endingCount} project berakhir`, projects: m.endingProjects })}
+                        onClick={() => m.endingCount > 0 && setDrilldownModal({ title: `🏁 Project Berakhir Bulan ${m.monthName}`, subtitle: `Total: ${m.endingCount} Project (${formatCurrencySmart(m.endingNilai)})`, projects: m.endingProjects })}
                       >
-                        🔸 Akhir: {m.endingCount}
+                        🔸 Akhir: {m.endingCount} ({formatCurrencySmart(m.endingNilai)})
                       </span>
                     </div>
                   ))}
@@ -919,42 +1021,80 @@ export default function Dashboard() {
       {/* SECTION 3: STATUS BILLING & FINANCE                                      */}
       {/* ========================================================================= */}
       <div>
-        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary-color)', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <IconFinance size={18} color="var(--primary-color)" /> SECTION 3: STATUS BILLING & PENAGIHAN ({sec3Metrics.currentMonthName})
+        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary-color)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <IconFinance size={18} color="var(--primary-color)" /> SECTION 3: STATUS BILLING & PENAGIHAN
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
-          {/* Total Sudah Cair */}
-          <div
-            className="stat-card finance"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setDrilldownModal({ title: '🟢 Project Dengan Realisasi Pembayaran (Cair)', subtitle: `Total Cair: Rp ${sec3Metrics.totalSudahCair.toLocaleString('id-ID')}`, projects: sec3Metrics.paidProjectsList })}
-          >
-            <span className="stat-label">Total Cair (Sudah Dibayarkan)</span>
-            <span className="stat-value" style={{ color: '#10b981' }}>{formatCurrencySmart(sec3Metrics.totalSudahCair)}</span>
-            <span className="stat-sub">Full: Rp {sec3Metrics.totalSudahCair.toLocaleString('id-ID')}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
+          {/* Kelompok 1: Agregat Total */}
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              📊 Agregat Total (Keseluruhan)
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+              {/* 1. Total Cair (Sudah Dibayarkan) */}
+              <div
+                className="stat-card finance"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setDrilldownModal({ title: '🟢 Project Dengan Realisasi Pembayaran (Total Cair)', subtitle: `Total Cair: Rp ${sec3Metrics.totalSudahCair.toLocaleString('id-ID')}`, projects: sec3Metrics.paidProjectsList })}
+              >
+                <span className="stat-label">Total Cair (Sudah Dibayarkan)</span>
+                <span className="stat-value" style={{ color: '#10b981' }}>{formatCurrencySmart(sec3Metrics.totalSudahCair)}</span>
+                <span className="stat-sub">Full: Rp {sec3Metrics.totalSudahCair.toLocaleString('id-ID')}</span>
+              </div>
+
+              {/* 2. Sisa Tagihan Belum Dibayar */}
+              <div
+                className="stat-card"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setDrilldownModal({ title: '🔴 Sisa Tagihan Belum Dibayar (Outstanding)', subtitle: `Total Sisa Tagihan: Rp ${sec3Metrics.sisaTagihanBelumDibayar.toLocaleString('id-ID')}`, projects: sec3Metrics.unpaidProjectsList })}
+              >
+                <span className="stat-label">Sisa Tagihan Belum Dibayar</span>
+                <span className="stat-value" style={{ color: '#ef4444' }}>{formatCurrencySmart(sec3Metrics.sisaTagihanBelumDibayar)}</span>
+                <span className="stat-sub">Full: Rp {sec3Metrics.sisaTagihanBelumDibayar.toLocaleString('id-ID')}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Sisa Tagihan Belum Dibayar */}
-          <div
-            className="stat-card"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setDrilldownModal({ title: '🔴 Sisa Tagihan Belum Dibayar (Outstanding)', subtitle: `Total Sisa Tagihan: Rp ${sec3Metrics.sisaTagihanBelumDibayar.toLocaleString('id-ID')}`, projects: sec3Metrics.unpaidProjectsList })}
-          >
-            <span className="stat-label">Sisa Tagihan Belum Dibayar</span>
-            <span className="stat-value" style={{ color: '#ef4444' }}>{formatCurrencySmart(sec3Metrics.sisaTagihanBelumDibayar)}</span>
-            <span className="stat-sub">Full: Rp {sec3Metrics.sisaTagihanBelumDibayar.toLocaleString('id-ID')}</span>
-          </div>
+          {/* Kelompok 2: Per Bulan */}
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              📅 Penagihan Bulan Ini ({sec3Metrics.currentMonthName})
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              {/* 3. Seharusnya Ditagih Bulan Ini */}
+              <div
+                className="stat-card"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setDrilldownModal({ title: `📅 Target Penagihan Bulan Ini (${sec3Metrics.currentMonthName})`, subtitle: `Total Target: Rp ${sec3Metrics.totalHarusDitagihBulanIni.toLocaleString('id-ID')}`, projects: sec3Metrics.currentMonthBillings.map(b => b.project) })}
+              >
+                <span className="stat-label">Seharusnya Ditagih Bulan Ini</span>
+                <span className="stat-value" style={{ color: '#0284c7' }}>{formatCurrencySmart(sec3Metrics.totalHarusDitagihBulanIni)}</span>
+                <span className="stat-sub">{sec3Metrics.currentMonthBillings.length} Termin Target</span>
+              </div>
 
-          {/* Total Seharusnya Ditagih Bulan Ini */}
-          <div
-            className="stat-card"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setDrilldownModal({ title: `📅 Target Penagihan Bulan Ini (${sec3Metrics.currentMonthName})`, subtitle: `Total Target: Rp ${sec3Metrics.totalHarusDitagihBulanIni.toLocaleString('id-ID')}`, projects: sec3Metrics.currentMonthBillings.map(b => b.project) })}
-          >
-            <span className="stat-label">Seharusnya Ditagih Bulan Ini ({sec3Metrics.currentMonthName})</span>
-            <span className="stat-value" style={{ color: '#0284c7' }}>{formatCurrencySmart(sec3Metrics.totalHarusDitagihBulanIni)}</span>
-            <span className="stat-sub">Jumlah Termin Target: {sec3Metrics.currentMonthBillings.length} Termin</span>
+              {/* 4. Sudah Cair Bulan Ini */}
+              <div
+                className="stat-card"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setDrilldownModal({ title: `✅ Penagihan Sudah Cair Bulan Ini (${sec3Metrics.currentMonthName})`, subtitle: `Total Cair Bulan Ini: Rp ${sec3Metrics.sudahCairBulanIni.toLocaleString('id-ID')}`, projects: sec3Metrics.currentMonthPaidBillings.map(b => b.project) })}
+              >
+                <span className="stat-label">Sudah Cair Bulan Ini</span>
+                <span className="stat-value" style={{ color: '#059669' }}>{formatCurrencySmart(sec3Metrics.sudahCairBulanIni)}</span>
+                <span className="stat-sub">{sec3Metrics.currentMonthPaidBillings.length} Termin Cair</span>
+              </div>
+
+              {/* 5. Sisa Belum Cair Bulan Ini */}
+              <div
+                className="stat-card"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setDrilldownModal({ title: `⏳ Sisa Penagihan Belum Cair Bulan Ini (${sec3Metrics.currentMonthName})`, subtitle: `Total Belum Cair: Rp ${sec3Metrics.sisaBelumCairBulanIni.toLocaleString('id-ID')}`, projects: sec3Metrics.currentMonthUnpaidBillings.map(b => b.project) })}
+              >
+                <span className="stat-label">Sisa Belum Cair Bulan Ini</span>
+                <span className="stat-value" style={{ color: '#d97706' }}>{formatCurrencySmart(sec3Metrics.sisaBelumCairBulanIni)}</span>
+                <span className="stat-sub">{sec3Metrics.currentMonthUnpaidBillings.length} Termin Pending</span>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -175,26 +175,6 @@ function UstekContent() {
               <span className="stat-sub">Siap Upload</span>
             </div>
           </div>
-
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <IconUser size={20} color="#0284c7" /> Beban Kerja Penulisan Ustek per PIC
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-              {internalUsers.map((u) => {
-                const picProjects = projects.filter((p) => p.pic_ustek === u.nama || p.pic_ustek === u.username);
-                return (
-                  <div key={u.id} style={{ padding: '0.85rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontWeight: 700, color: '#1e293b' }}>👤 {u.nama || u.username}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{u.divisi || u.role}</div>
-                    <div style={{ marginTop: '0.5rem', fontWeight: 600, color: '#0284c7' }}>
-                      {picProjects.length} Ustek Assigned
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       ) : (
         /* LEMBAR KERJA USTET VIEW */

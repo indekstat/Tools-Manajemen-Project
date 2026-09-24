@@ -586,6 +586,22 @@ def update_project(project_id: int, project: schemas.ProjectUpdate, db: Session 
     for key, value in project.model_dump(exclude_unset=True).items():
         setattr(db_project, key, value)
         
+    # Sync status_ustek and status_penulisan_ustek
+    if getattr(project, 'status_ustek', None) is not None:
+        db_project.status_penulisan_ustek = db_project.status_ustek
+    elif getattr(project, 'status_penulisan_ustek', None) is not None:
+        db_project.status_ustek = db_project.status_penulisan_ustek
+
+    # Auto-calculate status_selesai_substansi (Status Selesai Penawaran)
+    # Status Selesai is True iff Ustek, RAB, and TA are all 'Selesai'
+    ustek_done = (getattr(db_project, 'status_ustek', None) == 'Selesai' or getattr(db_project, 'status_penulisan_ustek', None) == 'Selesai')
+    rab_done = (getattr(db_project, 'status_rab', None) == 'Selesai')
+    ta_done = (getattr(db_project, 'status_ta', None) == 'Selesai')
+
+    # If status_selesai_substansi was NOT explicitly passed in request, calculate from 3 aspects
+    if getattr(project, 'status_selesai_substansi', None) is None:
+        db_project.status_selesai_substansi = True if (ustek_done and rab_done and ta_done) else False
+
     db.commit()
     db.refresh(db_project)
     return db_project

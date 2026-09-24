@@ -34,15 +34,20 @@ class Project(Base):
     metode_pekerjaan = Column(String, nullable=True) # Survey, Kajian, Development
     jenis_pekerjaan = Column(String, nullable=True) # IT, Bisnis Intelligence, Indeks, Peta Potensi, Evaluasi Program, Manajemen, Pendampingan, Survei Politik, Analisa Dapil, Kelola Relawan
     
-    # Ustek fields
+    # Ustek & Penawaran fields
     status_selesai_substansi = Column(Boolean, default=False)
     status_selesai_administrasi = Column(Boolean, default=False)
     status_ustek_review = Column(String, default="Draft") # Draft, On Review, Approved
     status_penulisan_ustek = Column(String)
+    status_ustek = Column(String, default="Belum") # Belum, On Progress, Selesai
     deadline_penulisan_ustek = Column(Date, nullable=True)
     pic_ustek = Column(String)
     tim_ustek = Column(String, nullable=True)
     url_ustek = Column(String, nullable=True)
+    url_rab = Column(String, nullable=True)
+    status_rab = Column(String, default="Belum") # Belum, On Progress, Selesai
+    url_ta = Column(String, nullable=True)
+    status_ta = Column(String, default="Belum") # Belum, On Progress, Selesai
 
     # Finance & Admin fields
     admin = Column(String)

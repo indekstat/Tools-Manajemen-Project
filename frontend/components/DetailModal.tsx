@@ -386,6 +386,18 @@ export default function DetailModal({ project, onClose, onRefresh }: ProjectDeta
                   ) : <span className="text-dim">-</span>}
                 </div>
                 <div className="link-item">
+                  <span className="detail-label">Link RAB:</span>
+                  {project.url_rab ? (
+                    <ClickableText text={project.url_rab} buttonLabel="Buka Link RAB" />
+                  ) : <span className="text-dim">-</span>}
+                </div>
+                <div className="link-item">
+                  <span className="detail-label">Link TA:</span>
+                  {project.url_ta ? (
+                    <ClickableText text={project.url_ta} buttonLabel="Buka Link TA" />
+                  ) : <span className="text-dim">-</span>}
+                </div>
+                <div className="link-item">
                   <span className="detail-label">Link SPK:</span>
                   {project.link_spk ? (
                     <ClickableText text={project.link_spk} buttonLabel="Buka Dokumen SPK" />

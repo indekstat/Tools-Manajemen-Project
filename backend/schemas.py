@@ -176,10 +176,15 @@ class ProjectBase(BaseModel):
     status_selesai_administrasi: bool = False
     status_ustek_review: Optional[str] = "Draft"
     status_penulisan_ustek: Optional[str] = None
+    status_ustek: Optional[str] = "Belum"
     deadline_penulisan_ustek: Optional[date] = None
     pic_ustek: Optional[str] = None
     tim_ustek: Optional[str] = None
     url_ustek: Optional[str] = None
+    url_rab: Optional[str] = None
+    status_rab: Optional[str] = "Belum"
+    url_ta: Optional[str] = None
+    status_ta: Optional[str] = "Belum"
 
     admin: Optional[str] = None
     tanggal_mulai_spk: Optional[date] = None
@@ -215,10 +220,15 @@ class ProjectUpdate(BaseModel):
     status_selesai_administrasi: Optional[bool] = None
     status_ustek_review: Optional[str] = None
     status_penulisan_ustek: Optional[str] = None
+    status_ustek: Optional[str] = None
     deadline_penulisan_ustek: Optional[date] = None
     pic_ustek: Optional[str] = None
     tim_ustek: Optional[str] = None
     url_ustek: Optional[str] = None
+    url_rab: Optional[str] = None
+    status_rab: Optional[str] = None
+    url_ta: Optional[str] = None
+    status_ta: Optional[str] = None
 
     admin: Optional[str] = None
     tanggal_mulai_spk: Optional[date] = None

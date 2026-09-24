@@ -5,13 +5,137 @@ import { fetchWithAuth } from '../../lib/api';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
-import { IconUstek, IconCheck, IconClock, IconEye, IconGlobe, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser, IconTarget } from '../../components/Icons';
+import { IconUstek, IconCheck, IconClock, IconEye, IconGlobe, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser, IconTarget, IconFinance } from '../../components/Icons';
 
 export default function UstekPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat Halaman Ustek...</div>}>
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat Halaman Penawaran...</div>}>
       <UstekContent />
     </Suspense>
+  );
+}
+
+// Helper to check if overall Penawaran (all 3 aspects: Ustek, RAB, TA) is Selesai
+function isPenawaranSelesai(p: any) {
+  const ustekDone = p.status_ustek === 'Selesai' || p.status_penulisan_ustek === 'Selesai';
+  const rabDone = p.status_rab === 'Selesai';
+  const taDone = p.status_ta === 'Selesai';
+  return ustekDone && rabDone && taDone;
+}
+
+// Count how many of the 3 aspects are completed
+function getAspectsDoneCount(p: any) {
+  let count = 0;
+  if (p.status_ustek === 'Selesai' || p.status_penulisan_ustek === 'Selesai') count++;
+  if (p.status_rab === 'Selesai') count++;
+  if (p.status_ta === 'Selesai') count++;
+  return count;
+}
+
+// Status select badge component for Ustek, RAB, TA
+function StatusBadgeSelect({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const currentVal = value || 'Belum';
+  let bg = '#f1f5f9';
+  let color = '#64748b';
+  let border = '1px solid #cbd5e1';
+
+  if (currentVal === 'Selesai') {
+    bg = '#dcfce7';
+    color = '#15803d';
+    border = '1px solid #86efac';
+  } else if (currentVal === 'On Progress') {
+    bg = '#fef3c7';
+    color = '#b45309';
+    border = '1px solid #fde68a';
+  }
+
+  return (
+    <select
+      value={currentVal}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        padding: '0.25rem 0.4rem',
+        borderRadius: '6px',
+        fontSize: '0.75rem',
+        fontWeight: 650,
+        background: bg,
+        color: color,
+        border: border,
+        cursor: 'pointer',
+        outline: 'none',
+      }}
+    >
+      <option value="Belum" style={{ background: '#fff', color: '#334155' }}>Belum</option>
+      <option value="On Progress" style={{ background: '#fff', color: '#334155' }}>On Progress</option>
+      <option value="Selesai" style={{ background: '#fff', color: '#334155' }}>Selesai</option>
+    </select>
+  );
+}
+
+// Interactive Link Cell Component
+function LinkCell({ value, placeholder, onSave }: { value: string; placeholder: string; onSave: (val: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value || '');
+
+  useEffect(() => {
+    setVal(value || '');
+  }, [value]);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        className="input-field"
+        style={{ margin: 0, padding: '0.25rem 0.4rem', width: '130px', fontSize: '0.75rem' }}
+        placeholder={placeholder}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={() => {
+          setEditing(false);
+          onSave(val);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            setEditing(false);
+            onSave(val);
+          }
+        }}
+      />
+    );
+  }
+
+  if (val) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <ClickableText text={val} buttonLabel="Link" />
+        <button
+          onClick={() => setEditing(true)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '0.7rem' }}
+          title="Edit Link"
+        >
+          ✏️
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      style={{
+        background: 'rgba(241, 245, 249, 0.7)',
+        border: '1px dashed #cbd5e1',
+        borderRadius: '6px',
+        padding: '0.2rem 0.4rem',
+        fontSize: '0.725rem',
+        color: '#64748b',
+        cursor: 'pointer',
+        width: '100%',
+        textAlign: 'left'
+      }}
+    >
+      + Edit Link
+    </button>
   );
 }
 
@@ -78,7 +202,7 @@ function UstekContent() {
     return internalUsers.map((u) => u.nama || u.username);
   }, [internalUsers]);
 
-  const handleUpdateUstek = async (id: number, fields: Record<string, any>) => {
+  const handleUpdatePenawaran = async (id: number, fields: Record<string, any>) => {
     await fetchWithAuth(`/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(fields),
@@ -87,25 +211,25 @@ function UstekContent() {
   };
 
   const handleMarkUstekFinished = async (p: any) => {
-    // Call submit ustek review API or update project
-    await fetchWithAuth(`/projects/${p.id}/submit-ustek-review`, {
-      method: 'POST',
+    // Submit review or mark all 3 aspects finished
+    await fetchWithAuth(`/projects/${p.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        status_ustek: 'Selesai',
+        status_rab: 'Selesai',
+        status_ta: 'Selesai',
+        status_selesai_substansi: true
+      }),
     });
     setConfirmTargetProject(null);
-    loadProjects();
-  };
-
-  const handleApproveUstek = async (id: number) => {
-    await fetchWithAuth(`/projects/${id}/approve-ustek`, {
-      method: 'POST',
-    });
     loadProjects();
   };
 
   const filteredProjects = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return projects.filter((p) => {
-      const matchStatus = filterStatusUstek === 'ALL' || (filterStatusUstek === 'SELESAI' ? p.status_selesai_substansi : !p.status_selesai_substansi);
+      const isSelesai = isPenawaranSelesai(p);
+      const matchStatus = filterStatusUstek === 'ALL' || (filterStatusUstek === 'SELESAI' ? isSelesai : !isSelesai);
       const matchQuery = !q || (
         (p.nama_pekerjaan || '').toLowerCase().includes(q) ||
         (p.pemberi_kerja || '').toLowerCase().includes(q) ||
@@ -117,20 +241,46 @@ function UstekContent() {
     });
   }, [projects, filterStatusUstek, searchQuery]);
 
-  const groupedByStatusUstek = useMemo(() => {
-    const onprogress = filteredProjects.filter((p) => !p.status_selesai_substansi);
-    const selesai = filteredProjects.filter((p) => p.status_selesai_substansi === true);
+  const groupedByStatusPenawaran = useMemo(() => {
+    const onprogress = filteredProjects.filter((p) => !isPenawaranSelesai(p));
+    const selesai = filteredProjects.filter((p) => isPenawaranSelesai(p));
     
-    if (filterStatusUstek === 'ONPROGRESS') return { 'Onprogress Ustek': onprogress };
-    if (filterStatusUstek === 'SELESAI') return { 'Selesai Ustek': selesai };
+    if (filterStatusUstek === 'ONPROGRESS') return { 'Onprogress Penawaran': onprogress };
+    if (filterStatusUstek === 'SELESAI') return { 'Selesai Penawaran': selesai };
     
     const result: Record<string, any[]> = {};
-    if (onprogress.length > 0) result['Onprogress Ustek'] = onprogress;
-    if (selesai.length > 0) result['Selesai Ustek'] = selesai;
+    if (onprogress.length > 0) result['Onprogress Penawaran'] = onprogress;
+    if (selesai.length > 0) result['Selesai Penawaran'] = selesai;
     return result;
   }, [filteredProjects, filterStatusUstek]);
 
-  const canApproveUstek = ['Superadmin', 'Gov'].includes(userRole);
+  // Overview calculated statistics
+  const totalCount = projects.length;
+  const selesaiCount = useMemo(() => projects.filter(isPenawaranSelesai).length, [projects]);
+  const onprogressCount = totalCount - selesaiCount;
+  const completionRate = totalCount > 0 ? Math.round((selesaiCount / totalCount) * 100) : 0;
+
+  // Breakdown for each aspect
+  const ustekStats = useMemo(() => {
+    const selesai = projects.filter((p) => p.status_ustek === 'Selesai' || p.status_penulisan_ustek === 'Selesai').length;
+    const onProgress = projects.filter((p) => p.status_ustek === 'On Progress' || p.status_penulisan_ustek === 'Sedang Disusun').length;
+    const belum = totalCount - selesai - onProgress;
+    return { selesai, onProgress, belum: Math.max(0, belum) };
+  }, [projects, totalCount]);
+
+  const rabStats = useMemo(() => {
+    const selesai = projects.filter((p) => p.status_rab === 'Selesai').length;
+    const onProgress = projects.filter((p) => p.status_rab === 'On Progress').length;
+    const belum = totalCount - selesai - onProgress;
+    return { selesai, onProgress, belum: Math.max(0, belum) };
+  }, [projects, totalCount]);
+
+  const taStats = useMemo(() => {
+    const selesai = projects.filter((p) => p.status_ta === 'Selesai').length;
+    const onProgress = projects.filter((p) => p.status_ta === 'On Progress').length;
+    const belum = totalCount - selesai - onProgress;
+    return { selesai, onProgress, belum: Math.max(0, belum) };
+  }, [projects, totalCount]);
 
   return (
     <div>
@@ -138,77 +288,230 @@ function UstekContent() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <IconUstek size={28} color="#0284c7" />
           <div>
-            <h1 className="page-title">Kontrol Penawaran (Ustek)</h1>
-            <p className="page-desc">Monitoring & Penilaian Usulan Teknis (Ustek) untuk pekerjaan Bidding.</p>
+            <h1 className="page-title">Kontrol Penawaran</h1>
+            <p className="page-desc">Monitoring & Pengelolaan Penawaran (Ustek, RAB, TA) untuk pekerjaan Bidding.</p>
           </div>
         </div>
       </div>
 
       {/* SUB-MENU OVERVIEW VIEW */}
       {currentView === 'overview' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+          {/* STATS GRID */}
           <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <div className="stat-card">
-              <span className="stat-label">Total Pekerjaan Ustek</span>
-              <span className="stat-value">{projects.length}</span>
-              <span className="stat-sub">Penyusunan & Upload Ustek</span>
+              <span className="stat-label">Total Pekerjaan Penawaran</span>
+              <span className="stat-value">{totalCount}</span>
+              <span className="stat-sub">Tahap Ustek & Bidding</span>
             </div>
             <div className="stat-card">
-              <span className="stat-label">Onprogress Ustek</span>
+              <span className="stat-label">Penawaran Selesai (3/3 Aspect)</span>
+              <span className="stat-value" style={{ color: '#10b981' }}>
+                {selesaiCount}
+              </span>
+              <span className="stat-sub">Ustek, RAB, & TA Lengkap</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Penawaran On Progress</span>
               <span className="stat-value" style={{ color: '#f59e0b' }}>
-                {projects.filter((p) => !p.status_selesai_substansi).length}
+                {onprogressCount}
               </span>
-              <span className="stat-sub">Sedang disusun</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Sedang Menunggu Review</span>
-              <span className="stat-value" style={{ color: '#0284c7' }}>
-                {projects.filter((p) => p.status_ustek_review === 'On Review').length}
-              </span>
-              <span className="stat-sub">Pending Approval Head/Gov</span>
+              <span className="stat-sub">Dalam proses kelengkapan</span>
             </div>
             <div className="stat-card finance">
-              <span className="stat-label">Ustek Disetujui (Approved)</span>
-              <span className="stat-value" style={{ color: '#10b981' }}>
-                {projects.filter((p) => p.status_ustek_review === 'Approved' || p.status_selesai_substansi).length}
+              <span className="stat-label">Tingkat Penyelesaian</span>
+              <span className="stat-value" style={{ color: '#0284c7' }}>
+                {completionRate}%
               </span>
-              <span className="stat-sub">Siap Upload</span>
+              <span className="stat-sub">Rata-rata kesiapan dokumen</span>
+            </div>
+          </div>
+
+          {/* 3 ASPECTS BREAKDOWN SECTION */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
+            {/* Ustek Card */}
+            <div className="glass-card" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <IconUstek size={20} color="#0284c7" /> Usulan Teknis (Ustek)
+                </span>
+                <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>
+                  {ustekStats.selesai}/{totalCount} Selesai
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🟢 Selesai:</span> <strong>{ustekStats.selesai} Pekerjaan</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🟡 On Progress:</span> <strong>{ustekStats.onProgress} Pekerjaan</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>⚪ Belum:</span> <strong>{ustekStats.belum} Pekerjaan</strong>
+                </div>
+              </div>
+              <div style={{ background: '#e2e8f0', borderRadius: '4px', height: '8px', width: '100%', marginTop: '1rem', overflow: 'hidden' }}>
+                <div style={{ background: '#0284c7', height: '100%', width: `${totalCount > 0 ? (ustekStats.selesai / totalCount) * 100 : 0}%`, transition: 'width 0.3s ease' }} />
+              </div>
+            </div>
+
+            {/* RAB Card */}
+            <div className="glass-card" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <IconFinance size={20} color="#10b981" /> Rencana Anggaran (RAB)
+                </span>
+                <span className="badge" style={{ background: '#dcfce7', color: '#15803d' }}>
+                  {rabStats.selesai}/{totalCount} Selesai
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🟢 Selesai:</span> <strong>{rabStats.selesai} Pekerjaan</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🟡 On Progress:</span> <strong>{rabStats.onProgress} Pekerjaan</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>⚪ Belum:</span> <strong>{rabStats.belum} Pekerjaan</strong>
+                </div>
+              </div>
+              <div style={{ background: '#e2e8f0', borderRadius: '4px', height: '8px', width: '100%', marginTop: '1rem', overflow: 'hidden' }}>
+                <div style={{ background: '#10b981', height: '100%', width: `${totalCount > 0 ? (rabStats.selesai / totalCount) * 100 : 0}%`, transition: 'width 0.3s ease' }} />
+              </div>
+            </div>
+
+            {/* TA Card */}
+            <div className="glass-card" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <IconUser size={20} color="#8b5cf6" /> Tenaga Ahli (TA)
+                </span>
+                <span className="badge" style={{ background: '#f3e8ff', color: '#6b21a8' }}>
+                  {taStats.selesai}/{totalCount} Selesai
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🟢 Selesai:</span> <strong>{taStats.selesai} Pekerjaan</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🟡 On Progress:</span> <strong>{taStats.onProgress} Pekerjaan</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>⚪ Belum:</span> <strong>{taStats.belum} Pekerjaan</strong>
+                </div>
+              </div>
+              <div style={{ background: '#e2e8f0', borderRadius: '4px', height: '8px', width: '100%', marginTop: '1rem', overflow: 'hidden' }}>
+                <div style={{ background: '#8b5cf6', height: '100%', width: `${totalCount > 0 ? (taStats.selesai / totalCount) * 100 : 0}%`, transition: 'width 0.3s ease' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* OVERVIEW MATRIX TABLE */}
+          <div className="glass-card">
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Matriks Status Penawaran Pekerjaan</h3>
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: '40px', textAlign: 'center' }}>No.</th>
+                    <th>Nama Pekerjaan</th>
+                    <th>Pemberi Kerja</th>
+                    <th>Nilai Kontrak</th>
+                    <th>Status Ustek</th>
+                    <th>Status RAB</th>
+                    <th>Status TA</th>
+                    <th>Status Selesai Penawaran</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>Tidak ada data pekerjaan.</td>
+                    </tr>
+                  ) : (
+                    projects.map((p, idx) => {
+                      const isDone = isPenawaranSelesai(p);
+                      const countDone = getAspectsDoneCount(p);
+                      return (
+                        <tr key={p.id}>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
+                          <td style={{ fontWeight: 600 }}><ClickableText text={p.nama_pekerjaan} /></td>
+                          <td><ClickableText text={p.pemberi_kerja || '-'} /></td>
+                          <td style={{ color: '#34d399', fontWeight: 700 }}>
+                            Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                          </td>
+                          <td>
+                            <span className={`badge ${p.status_ustek === 'Selesai' || p.status_penulisan_ustek === 'Selesai' ? 'badge-done' : p.status_ustek === 'On Progress' ? 'badge-pending' : ''}`}>
+                              {p.status_ustek || p.status_penulisan_ustek || 'Belum'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge ${p.status_rab === 'Selesai' ? 'badge-done' : p.status_rab === 'On Progress' ? 'badge-pending' : ''}`}>
+                              {p.status_rab || 'Belum'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge ${p.status_ta === 'Selesai' ? 'badge-done' : p.status_ta === 'On Progress' ? 'badge-pending' : ''}`}>
+                              {p.status_ta || 'Belum'}
+                            </span>
+                          </td>
+                          <td>
+                            {isDone ? (
+                              <span className="badge badge-done" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <IconCheck size={14} /> Selesai (3/3)
+                              </span>
+                            ) : (
+                              <span className="badge badge-pending" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <IconClock size={14} /> On Progress ({countDone}/3)
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       ) : (
-        /* LEMBAR KERJA USTET VIEW */
+        /* LEMBAR KERJA PENAWARAN VIEW */
         <>
-          {/* FILTER BUTTONS (Status Ustek Grouping) */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          {/* FILTER BUTTONS (Status Penawaran Grouping) */}
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             <button
               className={`btn-primary ${filterStatusUstek === 'ALL' ? '' : 'btn-secondary'}`}
               onClick={() => setFilterStatusUstek('ALL')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <IconGlobe size={15} /> Semua Ustek ({projects.length})
+              <IconGlobe size={15} /> Semua Penawaran ({projects.length})
             </button>
             <button
               className={`btn-primary ${filterStatusUstek === 'ONPROGRESS' ? '' : 'btn-secondary'}`}
               onClick={() => setFilterStatusUstek('ONPROGRESS')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <IconClock size={15} /> Onprogress Ustek ({projects.filter((p) => !p.status_selesai_substansi).length})
+              <IconClock size={15} /> Onprogress Penawaran ({projects.filter((p) => !isPenawaranSelesai(p)).length})
             </button>
             <button
               className={`btn-primary ${filterStatusUstek === 'SELESAI' ? '' : 'btn-secondary'}`}
               onClick={() => setFilterStatusUstek('SELESAI')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <IconCheck size={15} /> Selesai Ustek ({projects.filter((p) => p.status_selesai_substansi).length})
+              <IconCheck size={15} /> Selesai Penawaran ({projects.filter(isPenawaranSelesai).length})
             </button>
           </div>
 
           <div className="glass-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Lembar Kerja Ustek</h2>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan pekerjaan bidding yang sedang dalam tahap penyusunan atau upload Ustek.</p>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Lembar Kerja Penawaran</h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Menampilkan dan mengelola status kelengkapan Penawaran (Ustek, RAB, TA) untuk pekerjaan bidding.
+                </p>
               </div>
 
               <div style={{ position: 'relative', minWidth: '300px', flex: 1, maxWidth: '420px' }}>
@@ -227,9 +530,9 @@ function UstekContent() {
             </div>
 
             {loading ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat data ustek...</div>
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat data penawaran...</div>
             ) : (
-              Object.keys(groupedByStatusUstek).map((groupTitle) => {
+              Object.keys(groupedByStatusPenawaran).map((groupTitle) => {
                 const isCollapsed = Boolean(collapsedGroups[groupTitle]);
                 return (
                   <div key={groupTitle} style={{ marginBottom: '1.5rem' }}>
@@ -257,7 +560,7 @@ function UstekContent() {
                           <IconFolder size={18} color="#f97316" /> {groupTitle}
                         </span>
                         <span className="badge" style={{ background: '#ffedd5', color: '#c2410c' }}>
-                          {groupedByStatusUstek[groupTitle].length} Record
+                          {groupedByStatusPenawaran[groupTitle].length} Record
                         </span>
                       </div>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -266,125 +569,111 @@ function UstekContent() {
                     </div>
 
                     {!isCollapsed && (
-                      <div className="table-container">
+                      <div className="table-container" style={{ overflowX: 'auto' }}>
                         <table>
                           <thead>
                             <tr>
-                              <th style={{ width: '40px', textAlign: 'center' }}>No.</th>
+                              <th style={{ width: '35px', textAlign: 'center' }}>No.</th>
                               <th>Nama Pekerjaan</th>
-                              <th>Pemberi Kerja / Satker</th>
+                              <th>Pemberi Kerja</th>
                               <th>Nilai (Rp)</th>
-                              <th>Lokasi</th>
-                              <th>Kategori</th>
-                              <th>Link Ustek</th>
                               <th>PIC Ustek</th>
-                              <th>Deadline Ustek</th>
-                              <th>Status Review</th>
+                              <th>Status Ustek</th>
+                              <th>Link RAB</th>
+                              <th>Status RAB</th>
+                              <th>Link TA</th>
+                              <th>Status TA</th>
                               <th>Status Selesai</th>
                               <th style={{ textAlign: 'right' }}>Aksi</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {groupedByStatusUstek[groupTitle].length === 0 ? (
+                            {groupedByStatusPenawaran[groupTitle].length === 0 ? (
                               <tr>
                                 <td colSpan={12} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
                                   Tidak ada pekerjaan di kelompok ini.
                                 </td>
                               </tr>
                             ) : (
-                              groupedByStatusUstek[groupTitle].map((p, idx) => (
-                                <tr key={p.id}>
-                                  <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-dim)' }}>{idx + 1}</td>
-                                  <td style={{ fontWeight: 600 }}>
-                                    <ClickableText text={p.nama_pekerjaan} />
-                                  </td>
-                                  <td>
-                                    <div style={{ fontSize: '0.85rem' }}><ClickableText text={p.pemberi_kerja || '-'} /></div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}><ClickableText text={p.satuan_kerja || '-'} /></div>
-                                  </td>
-                                  <td style={{ color: '#34d399', fontWeight: 700 }}>
-                                    Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
-                                  </td>
-                                  <td>{p.lokasi || 'Pusat'}</td>
-                                  <td>
-                                    <span className={`badge ${p.divisi_substansi === 'Gov' || p.kategori_project === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
-                                      {p.divisi_substansi || p.kategori_project || 'Gov'}
-                                    </span>
-                                  </td>
-                                  <td>
-                                      {p.url_ustek ? (
-                                        <ClickableText text={p.url_ustek} buttonLabel="Buka Ustek" />
-                                      ) : (
-                                      <input
-                                        className="input-field"
-                                        style={{ margin: 0, padding: '0.35rem 0.5rem', width: '130px' }}
-                                        placeholder="https://drive..."
-                                        defaultValue={p.url_ustek || ''}
-                                        onBlur={(e) => handleUpdateUstek(p.id, { url_ustek: e.target.value })}
+                              groupedByStatusPenawaran[groupTitle].map((p, idx) => {
+                                const isDone = isPenawaranSelesai(p);
+                                const doneCount = getAspectsDoneCount(p);
+
+                                return (
+                                  <tr key={p.id}>
+                                    <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-dim)' }}>{idx + 1}</td>
+                                    <td style={{ fontWeight: 600, minWidth: '180px' }}>
+                                      <ClickableText text={p.nama_pekerjaan} />
+                                    </td>
+                                    <td style={{ minWidth: '140px' }}>
+                                      <div style={{ fontSize: '0.85rem' }}><ClickableText text={p.pemberi_kerja || '-'} /></div>
+                                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}><ClickableText text={p.satuan_kerja || '-'} /></div>
+                                    </td>
+                                    <td style={{ color: '#34d399', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                      Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                                    </td>
+                                    <td>
+                                      <SearchableSelect
+                                        compact
+                                        style={{ margin: 0, width: '110px' }}
+                                        value={p.pic_ustek || ''}
+                                        onChange={(val) => handleUpdatePenawaran(p.id, { pic_ustek: val })}
+                                        options={userOptions}
+                                        placeholder="PIC Ustek"
                                       />
-                                    )}
-                                  </td>
-                                  <td>
-                                    <SearchableSelect
-                                      compact
-                                      style={{ margin: 0, width: '120px' }}
-                                      value={p.pic_ustek || ''}
-                                      onChange={(val) => handleUpdateUstek(p.id, { pic_ustek: val })}
-                                      options={userOptions}
-                                      placeholder="Pilih PIC"
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      className="input-field"
-                                      type="date"
-                                      style={{ margin: 0, padding: '0.25rem 0.4rem', width: '135px' }}
-                                      defaultValue={p.deadline_penulisan_ustek || ''}
-                                      onBlur={(e) => handleUpdateUstek(p.id, { deadline_penulisan_ustek: e.target.value || null })}
-                                    />
-                                  </td>
-                                  <td>
-                                    {p.status_ustek_review === 'On Review' ? (
-                                      <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.75rem' }}>
-                                        🟡 On Review
-                                      </span>
-                                    ) : p.status_ustek_review === 'Approved' ? (
-                                      <span className="badge" style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.75rem' }}>
-                                        🟢 Approved
-                                      </span>
-                                    ) : (
-                                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>-</span>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {p.status_selesai_substansi ? (
-                                      <span
-                                        className="badge badge-done"
-                                        style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', cursor: 'default', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                                      >
-                                        <IconCheck size={14} /> Selesai
-                                      </span>
-                                    ) : (
-                                      <button
-                                        className="btn-primary btn-sm btn-success"
-                                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                                        onClick={() => setConfirmTargetProject(p)}
-                                      >
-                                        <IconClock size={14} /> Tandai Selesai
-                                      </button>
-                                    )}
-                                  </td>
-                                  <td style={{ textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
-                                      {p.status_ustek_review === 'On Review' && canApproveUstek && (
-                                        <button
-                                          className="btn-primary btn-sm"
-                                          style={{ background: '#10b981', padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                          onClick={() => handleApproveUstek(p.id)}
+                                    </td>
+                                    <td>
+                                      <StatusBadgeSelect
+                                        value={p.status_ustek || p.status_penulisan_ustek || 'Belum'}
+                                        onChange={(val) => handleUpdatePenawaran(p.id, { status_ustek: val, status_penulisan_ustek: val })}
+                                      />
+                                    </td>
+                                    <td>
+                                      <LinkCell
+                                        value={p.url_rab || ''}
+                                        placeholder="https://drive..."
+                                        onSave={(val) => handleUpdatePenawaran(p.id, { url_rab: val })}
+                                      />
+                                    </td>
+                                    <td>
+                                      <StatusBadgeSelect
+                                        value={p.status_rab || 'Belum'}
+                                        onChange={(val) => handleUpdatePenawaran(p.id, { status_rab: val })}
+                                      />
+                                    </td>
+                                    <td>
+                                      <LinkCell
+                                        value={p.url_ta || ''}
+                                        placeholder="https://drive..."
+                                        onSave={(val) => handleUpdatePenawaran(p.id, { url_ta: val })}
+                                      />
+                                    </td>
+                                    <td>
+                                      <StatusBadgeSelect
+                                        value={p.status_ta || 'Belum'}
+                                        onChange={(val) => handleUpdatePenawaran(p.id, { status_ta: val })}
+                                      />
+                                    </td>
+                                    <td>
+                                      {isDone ? (
+                                        <span
+                                          className="badge badge-done"
+                                          style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', cursor: 'default', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
                                         >
-                                          ✓ Approve
+                                          <IconCheck size={14} /> Selesai (3/3)
+                                        </span>
+                                      ) : (
+                                        <button
+                                          className="btn-primary btn-sm btn-secondary"
+                                          style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                                          onClick={() => setConfirmTargetProject(p)}
+                                          title="Klik untuk tandai semua 3 aspek Selesai"
+                                        >
+                                          <IconClock size={14} /> On Progress ({doneCount}/3)
                                         </button>
                                       )}
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
                                       <button
                                         className="btn-primary btn-sm btn-secondary"
                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
@@ -392,10 +681,10 @@ function UstekContent() {
                                       >
                                         <IconEye size={14} /> Detail
                                       </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             )}
                           </tbody>
                         </table>
@@ -409,7 +698,7 @@ function UstekContent() {
         </>
       )}
 
-      {/* CONFIRMATION MODAL BEFORE MARKING USTET FINISHED */}
+      {/* CONFIRMATION MODAL BEFORE MARKING ALL ASPECTS FINISHED */}
       {confirmTargetProject && (
         <div
           style={{
@@ -427,18 +716,18 @@ function UstekContent() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: '#d97706' }}>
               <IconAlertTriangle size={24} color="#d97706" />
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>
-                Konfirmasi Penyelesaian Ustek
+                Konfirmasi Penyelesaian Penawaran
               </h3>
             </div>
             <p style={{ fontSize: '0.9rem', color: '#475569', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              Apakah Anda yakin penyusunan Ustek untuk pekerjaan <strong>"{confirmTargetProject.nama_pekerjaan}"</strong> telah selesai? Status Ustek akan diubah menjadi <strong>On Review</strong> dan memerlukan persetujuan Head.
+              Apakah Anda yakin ingin menandai seluruh aspek penawaran (<strong>Ustek, RAB, & TA</strong>) untuk pekerjaan <strong>"{confirmTargetProject.nama_pekerjaan}"</strong> sebagai <strong>Selesai</strong>?
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
               <button className="btn-primary btn-secondary" onClick={() => setConfirmTargetProject(null)}>
                 Batal
               </button>
               <button className="btn-primary btn-success" onClick={() => handleMarkUstekFinished(confirmTargetProject)}>
-                Ya, Tandai Selesai
+                Ya, Tandai Selesai (3/3)
               </button>
             </div>
           </div>

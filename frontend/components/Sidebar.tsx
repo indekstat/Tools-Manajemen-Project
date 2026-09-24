@@ -66,7 +66,7 @@ function SidebarContent() {
       roles: ['Gov', 'Pol', 'IR', 'Systech', 'Superadmin', 'Viewer', 'Management'],
       subItems: [
         { label: 'Overview', tab: 'overview' },
-        { label: 'Lembar Kerja Ustek', tab: 'worksheet' }
+        { label: 'Lembar Kerja Penawaran', tab: 'worksheet' }
       ]
     },
     {

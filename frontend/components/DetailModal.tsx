@@ -9,10 +9,17 @@ interface ProjectDetailModalProps {
   project: any | null;
   onClose: () => void;
   onRefresh?: () => void;
+  initialTab?: 'info' | 'stages' | 'billings';
 }
 
-export default function DetailModal({ project, onClose, onRefresh }: ProjectDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'stages' | 'billings'>('info');
+export default function DetailModal({ project, onClose, onRefresh, initialTab }: ProjectDetailModalProps) {
+  const [activeTab, setActiveTab] = useState<'info' | 'stages' | 'billings'>(initialTab || 'info');
+  
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, project]);
   
   // Stage Form State
   const [stageName, setStageName] = useState('');

@@ -16,18 +16,23 @@ Base.metadata.create_all(bind=engine)
 def ensure_columns():
     with engine.connect() as conn:
         from sqlalchemy import text
-        try:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN metode_pekerjaan VARCHAR"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN jenis_pekerjaan VARCHAR"))
-            conn.commit()
-        except Exception:
-            pass
+        for col in ["metode_pekerjaan", "jenis_pekerjaan"]:
+            try:
+                conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col} VARCHAR"))
+                conn.commit()
+            except Exception:
+                pass
+        for col in ["approval_ustek", "approval_rab", "approval_ta"]:
+            try:
+                conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col} BOOLEAN DEFAULT 0"))
+                conn.commit()
+            except Exception:
+                pass
+
+ensure_columns()
 
 app = FastAPI(title="Project Tracking System API (V2)")
+
 
 @app.on_event("startup")
 def startup_event():
@@ -128,16 +133,26 @@ def hris_login(payload: schemas.AuthLoginRequest, db: Session = Depends(get_db))
 
             if clean_user in alif_aliases:
                 target_username = "alif"
-                user = db.query(models.User).filter(
-                    (models.User.username.in_(alif_aliases)) |
-                    (models.User.nama.ilike("%Alif Hanif%"))
-                ).first()
+                # Search for target username first to prevent unique constraint error
+                user = db.query(models.User).filter(models.User.username == target_username).first()
+                if not user:
+                    user = db.query(models.User).filter(
+                        (models.User.username.in_(alif_aliases)) |
+                        (models.User.nama.ilike("%Alif Hanif%"))
+                    ).first()
             else:
                 target_username = clean_user
-                user = db.query(models.User).filter(
-                    (models.User.username == clean_user) | 
-                    (models.User.nama.ilike(f"%{clean_user}%"))
-                ).first()
+                user = db.query(models.User).filter(models.User.username == clean_user).first()
+                if not user:
+                    user = db.query(models.User).filter(models.User.nama.ilike(f"%{clean_user}%")).first()
+
+            # If alias user exists, delete duplicate alias rows BEFORE updating username
+            if clean_user in alif_aliases and user:
+                db.query(models.User).filter(
+                    models.User.username.in_(alif_aliases),
+                    models.User.id != user.id
+                ).delete(synchronize_session=False)
+                db.commit()
 
             if not user:
                 user = models.User(
@@ -158,14 +173,6 @@ def hris_login(payload: schemas.AuthLoginRequest, db: Session = Depends(get_db))
                     user.role = "Superadmin"
             db.commit()
             db.refresh(user)
-
-            # Clean up duplicate records if any
-            if target_username == "alif":
-                db.query(models.User).filter(
-                    models.User.username.in_(alif_aliases),
-                    models.User.id != user.id
-                ).delete(synchronize_session=False)
-                db.commit()
 
             access_token = auth.create_access_token(data={"sub": user.username})
 
@@ -364,10 +371,16 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                 assigned_role = "Superadmin" if is_leader else dept
 
                 # Sync to local DB for relational integrity
-                db_user = db.query(models.User).filter(models.User.username == username).first()
+                alif_aliases_sync = ["m.fadillah", "alif", "m.alif.hanif.fadillah", "m.alif.hanif.f", "alif131199", "m_fadillah"]
+                target_u = "alif" if username.strip().lower() in alif_aliases_sync else username
+
+                db_user = db.query(models.User).filter(models.User.username == target_u).first()
+                if not db_user:
+                    db_user = db.query(models.User).filter(models.User.username == username).first()
+
                 if not db_user:
                     db_user = models.User(
-                        username=username,
+                        username=target_u,
                         password_hash=auth.get_password_hash("password"),
                         role=assigned_role,
                         level=level_jabatan,
@@ -376,11 +389,16 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                     )
                     db.add(db_user)
                 else:
+                    db_user.username = target_u
                     db_user.nama = name
                     db_user.role = assigned_role
                     db_user.divisi = dept
                     db_user.level = level_jabatan
-                db.commit()
+                try:
+                    db.commit()
+                except Exception as commit_err:
+                    db.rollback()
+                    logger.warning(f"Skipped syncing user {username}: {commit_err}")
 
                 karyawan_info = schemas.KaryawanProfile(
                     id=k.get("id") or u.get("id"),

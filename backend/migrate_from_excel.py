@@ -42,72 +42,23 @@ def parse_float(val):
         return 0.0
 
 def run_migration():
-    print("Starting full database migration from Lark Base Excel files...")
+    print("Starting database migration from Lark Base Excel files...")
     
-    # 1. Reset database tables
-    Base.metadata.drop_all(bind=engine)
+    # 1. Reset project-related tables (do NOT drop users)
     Base.metadata.create_all(bind=engine)
-    
     db: Session = SessionLocal()
-    seen_usernames = set()
-    
-    # 2. Seed Default Users
-    default_users = [
-        {"username": "superadmin", "password": "password", "role": "Superadmin"},
-        {"username": "ir_user", "password": "password", "role": "IR"},
-        {"username": "gov_user", "password": "password", "role": "Gov"},
-        {"username": "pol_user", "password": "password", "role": "Pol"},
-        {"username": "finance_user", "password": "password", "role": "Finance"},
-        {"username": "viewer", "password": "password", "role": "Viewer"},
-    ]
-    for u in default_users:
-        user_obj = models.User(
-            username=u["username"],
-            password_hash=get_password_hash(u["password"]),
-            role=u["role"]
-        )
-        db.add(user_obj)
-        seen_usernames.add(u["username"])
+    db.query(models.Task).delete()
+    db.query(models.Billing).delete()
+    db.query(models.ProjectStage).delete()
+    db.query(models.BiddingStage).delete()
+    db.query(models.ProjectDashboard).delete()
+    db.query(models.Project).delete()
     db.commit()
+    
+    # 2. Ensure User table has original users from seed_users
+    import seed_users
+    seed_users.seed()
 
-    # 3. Seed Personil Internal as Users
-    f_personil = find_file(["Project Management_Daftar Personil Internal_Daftar.xlsx"])
-    if f_personil and os.path.exists(f_personil):
-        print(f"Loading personil file: {f_personil}")
-        wb_p = openpyxl.load_workbook(f_personil, data_only=True)
-        ws_p = wb_p['Daftar Personil Internal']
-        p_rows = list(ws_p.iter_rows(values_only=True))
-        if p_rows:
-            h_p = {str(name).strip(): i for i, name in enumerate(p_rows[0]) if name}
-            for row in p_rows[1:]:
-                nama = clean_str(row[h_p.get('Nama', 0)])
-                divisi = clean_str(row[h_p.get('Divisi', 1)])
-                jabatan = clean_str(row[h_p.get('Jabatan', 2)])
-                if nama:
-                    uname = nama.lower().replace(' ', '_').replace('.', '')
-                    if uname not in seen_usernames:
-                        role_map = {
-                            "Public Policy": "Gov",
-                            "Political Science": "Pol",
-                            "Institutional Relationship": "IR",
-                            "Finance & Administration": "Finance",
-                            "Chief & Founder": "Superadmin",
-                            "Data Science": "Viewer",
-                            "System & Technology": "Viewer",
-                            "People & Culture": "Viewer"
-                        }
-                        role = role_map.get(divisi, "Viewer") if divisi else "Viewer"
-                        level = str(jabatan).strip().upper() if jabatan else "STAFF"
-                        db.add(models.User(
-                            username=uname,
-                            password_hash=get_password_hash("password"),
-                            role=role,
-                            level=level,
-                            divisi=divisi,
-                            nama=nama
-                        ))
-                        seen_usernames.add(uname)
-            db.commit()
 
     # 4. Migrate Projects
     f_bidding = find_file([

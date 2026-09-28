@@ -5,7 +5,7 @@ import { fetchWithAuth } from '../../lib/api';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
-import { IconUstek, IconCheck, IconClock, IconEye, IconGlobe, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser, IconTarget, IconFinance } from '../../components/Icons';
+import { IconUstek, IconCheck, IconClock, IconEye, IconGlobe, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser, IconFinance } from '../../components/Icons';
 
 export default function UstekPage() {
   return (
@@ -69,6 +69,49 @@ function StatusBadgeSelect({ value, onChange }: { value: string; onChange: (val:
       <option value="On Progress" style={{ background: '#fff', color: '#334155' }}>On Progress</option>
       <option value="Selesai" style={{ background: '#fff', color: '#334155' }}>Selesai</option>
     </select>
+  );
+}
+
+// Approval Toggle Badge Button
+function ApprovalToggle({
+  approved,
+  disabled,
+  onToggle,
+}: {
+  approved: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onToggle}
+      title={
+        disabled
+          ? 'Hanya level Head, Chief, atau Superadmin yang dapat melakukan Approval'
+          : approved
+          ? 'Klik untuk batalkan approval'
+          : 'Klik untuk setujui (Approve)'
+      }
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.3rem',
+        padding: '0.25rem 0.5rem',
+        borderRadius: '6px',
+        fontSize: '0.725rem',
+        fontWeight: 700,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: approved ? '#dcfce7' : '#f1f5f9',
+        color: approved ? '#15803d' : '#64748b',
+        border: `1px solid ${approved ? '#86efac' : '#cbd5e1'}`,
+        opacity: disabled ? 0.65 : 1,
+        transition: 'all 0.15s ease',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span>{approved ? '✅ Approved' : '☐ Pending'}</span>
+    </button>
   );
 }
 
@@ -146,6 +189,7 @@ function UstekContent() {
   const [projects, setProjects] = useState<any[]>([]);
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
   const [userRole, setUserRole] = useState<string>('');
+  const [userLevel, setUserLevel] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [filterStatusUstek, setFilterStatusUstek] = useState<'ALL' | 'ONPROGRESS' | 'SELESAI'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,9 +214,16 @@ function UstekContent() {
       .then((res) => res.json())
       .then((data) => {
         if (data.role) setUserRole(data.role);
+        if (data.level) setUserLevel(data.level);
       })
       .catch(() => {});
   };
+
+  const isApprover = useMemo(() => {
+    const roleUpper = (userRole || '').toUpperCase();
+    const levelUpper = (userLevel || '').toUpperCase();
+    return roleUpper === 'SUPERADMIN' || levelUpper === 'CHIEF' || levelUpper === 'HEAD' || levelUpper.includes('HEAD') || levelUpper.includes('CHIEF');
+  }, [userRole, userLevel]);
 
   const loadProjects = () => {
     fetchWithAuth('/projects')
@@ -182,7 +233,7 @@ function UstekContent() {
           // Filter pekerjaan yang masuk tahapan Ustek DAN status bidding Ongoing
           const ustekProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
-            (p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
+            (p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek' || p.jenis_mekanisme === 'PL')
           );
           setProjects(ustekProjects);
         }
@@ -203,15 +254,16 @@ function UstekContent() {
   }, [internalUsers]);
 
   const handleUpdatePenawaran = async (id: number, fields: Record<string, any>) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...fields } : p))
+    );
     await fetchWithAuth(`/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(fields),
     });
-    loadProjects();
   };
 
   const handleMarkUstekFinished = async (p: any) => {
-    // Submit review or mark all 3 aspects finished
     await fetchWithAuth(`/projects/${p.id}`, {
       method: 'PUT',
       body: JSON.stringify({
@@ -282,6 +334,21 @@ function UstekContent() {
     return { selesai, onProgress, belum: Math.max(0, belum) };
   }, [projects, totalCount]);
 
+  // Approval Stats
+  const approvalStats = useMemo(() => {
+    const ustekApproved = projects.filter((p) => p.approval_ustek).length;
+    const rabApproved = projects.filter((p) => p.approval_rab).length;
+    const taApproved = projects.filter((p) => p.approval_ta).length;
+    const fullyApproved = projects.filter((p) => p.approval_ustek && p.approval_rab && p.approval_ta).length;
+
+    return {
+      ustekApproved,
+      rabApproved,
+      taApproved,
+      fullyApproved,
+    };
+  }, [projects]);
+
   return (
     <div>
       <div className="page-header">
@@ -289,7 +356,7 @@ function UstekContent() {
           <IconUstek size={28} color="#0284c7" />
           <div>
             <h1 className="page-title">Kontrol Penawaran</h1>
-            <p className="page-desc">Monitoring & Pengelolaan Penawaran (Ustek, RAB, TA) untuk pekerjaan Bidding.</p>
+            <p className="page-desc">Monitoring & Pengelolaan Penawaran (Ustek, RAB, TA) untuk pekerjaan Bidding & PL.</p>
           </div>
         </div>
       </div>
@@ -324,6 +391,59 @@ function UstekContent() {
                 {completionRate}%
               </span>
               <span className="stat-sub">Rata-rata kesiapan dokumen</span>
+            </div>
+          </div>
+
+          {/* OVERVIEW APPROVAL SECTION */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '1.25rem',
+              border: '1px solid #c7d2fe',
+              background: 'linear-gradient(135deg, rgba(238, 242, 255, 0.7), rgba(255, 255, 255, 0.95))',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e1b4b', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <IconCheck size={20} color="#4f46e5" /> Overview Approval Penawaran (Head / Chief / Superadmin)
+              </h3>
+              <span className="badge" style={{ background: '#e0e7ff', color: '#3730a3', fontWeight: 700, fontSize: '0.8rem' }}>
+                👑 Akses Checklist Otoritas
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div style={{ background: '#fff', padding: '0.85rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '0.775rem', fontWeight: 600, color: '#64748b' }}>Fully Approved (3/3 Aspect)</span>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a', margin: '0.2rem 0' }}>
+                  {approvalStats.fullyApproved} <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>/ {totalCount} Proyek</span>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#15803d' }}>Disetujui lengkap (Ustek, RAB, TA)</span>
+              </div>
+
+              <div style={{ background: '#fff', padding: '0.85rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '0.775rem', fontWeight: 600, color: '#64748b' }}>Approved Ustek</span>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0284c7', margin: '0.2rem 0' }}>
+                  {approvalStats.ustekApproved} <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>/ {totalCount}</span>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#0369a1' }}>Disetujui Head/Chief Ustek</span>
+              </div>
+
+              <div style={{ background: '#fff', padding: '0.85rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '0.775rem', fontWeight: 600, color: '#64748b' }}>Approved RAB</span>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981', margin: '0.2rem 0' }}>
+                  {approvalStats.rabApproved} <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>/ {totalCount}</span>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#047857' }}>Disetujui Head/Chief RAB</span>
+              </div>
+
+              <div style={{ background: '#fff', padding: '0.85rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '0.775rem', fontWeight: 600, color: '#64748b' }}>Approved TA</span>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#8b5cf6', margin: '0.2rem 0' }}>
+                  {approvalStats.taApproved} <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>/ {totalCount}</span>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#6d28d9' }}>Disetujui Head/Chief TA</span>
+              </div>
             </div>
           </div>
 
@@ -410,35 +530,40 @@ function UstekContent() {
 
           {/* OVERVIEW MATRIX TABLE */}
           <div className="glass-card">
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Matriks Status Penawaran Pekerjaan</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Matriks Status & Approval Penawaran Pekerjaan</h3>
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th style={{ width: '40px', textAlign: 'center' }}>No.</th>
                     <th>Nama Pekerjaan</th>
-                    <th>Pemberi Kerja</th>
+                    <th>Nama Lembaga / Satker</th>
                     <th>Nilai Kontrak</th>
                     <th>Status Ustek</th>
                     <th>Status RAB</th>
                     <th>Status TA</th>
+                    <th>Status Approval (Head/Chief)</th>
                     <th>Status Selesai Penawaran</th>
                   </tr>
                 </thead>
                 <tbody>
                   {projects.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>Tidak ada data pekerjaan.</td>
+                      <td colSpan={9} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>Tidak ada data pekerjaan.</td>
                     </tr>
                   ) : (
                     projects.map((p, idx) => {
                       const isDone = isPenawaranSelesai(p);
                       const countDone = getAspectsDoneCount(p);
+                      const isAllApproved = p.approval_ustek && p.approval_rab && p.approval_ta;
                       return (
                         <tr key={p.id}>
                           <td style={{ textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                           <td style={{ fontWeight: 600 }}><ClickableText text={p.nama_pekerjaan} /></td>
-                          <td><ClickableText text={p.pemberi_kerja || '-'} /></td>
+                          <td>
+                            <div style={{ fontSize: '0.85rem' }}><ClickableText text={p.pemberi_kerja || '-'} /></div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}><ClickableText text={p.satuan_kerja || '-'} /></div>
+                          </td>
                           <td style={{ color: '#34d399', fontWeight: 700 }}>
                             Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
                           </td>
@@ -456,6 +581,19 @@ function UstekContent() {
                             <span className={`badge ${p.status_ta === 'Selesai' ? 'badge-done' : p.status_ta === 'On Progress' ? 'badge-pending' : ''}`}>
                               {p.status_ta || 'Belum'}
                             </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.725rem' }}>
+                              <span style={{ color: p.approval_ustek ? '#16a34a' : '#94a3b8', fontWeight: p.approval_ustek ? 700 : 400 }}>
+                                {p.approval_ustek ? '✅ Ustek Approved' : '☐ Ustek Pending'}
+                              </span>
+                              <span style={{ color: p.approval_rab ? '#16a34a' : '#94a3b8', fontWeight: p.approval_rab ? 700 : 400 }}>
+                                {p.approval_rab ? '✅ RAB Approved' : '☐ RAB Pending'}
+                              </span>
+                              <span style={{ color: p.approval_ta ? '#16a34a' : '#94a3b8', fontWeight: p.approval_ta ? 700 : 400 }}>
+                                {p.approval_ta ? '✅ TA Approved' : '☐ TA Pending'}
+                              </span>
+                            </div>
                           </td>
                           <td>
                             {isDone ? (
@@ -510,7 +648,7 @@ function UstekContent() {
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Lembar Kerja Penawaran</h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Menampilkan dan mengelola status kelengkapan Penawaran (Ustek, RAB, TA) untuk pekerjaan bidding.
+                  Menampilkan dan mengelola status kelengkapan Penawaran (Ustek, RAB, TA) beserta link dan checklist approval Otoritas (Head/Chief/Superadmin).
                 </p>
               </div>
 
@@ -575,14 +713,18 @@ function UstekContent() {
                             <tr>
                               <th style={{ width: '35px', textAlign: 'center' }}>No.</th>
                               <th>Nama Pekerjaan</th>
-                              <th>Pemberi Kerja</th>
+                              <th>Nama Lembaga / Satker</th>
                               <th>Nilai (Rp)</th>
                               <th>PIC Ustek</th>
+                              <th>Link Ustek</th>
                               <th>Status Ustek</th>
+                              <th>Approval Ustek</th>
                               <th>Link RAB</th>
                               <th>Status RAB</th>
+                              <th>Approval RAB</th>
                               <th>Link TA</th>
                               <th>Status TA</th>
+                              <th>Approval TA</th>
                               <th>Status Selesai</th>
                               <th style={{ textAlign: 'right' }}>Aksi</th>
                             </tr>
@@ -590,7 +732,7 @@ function UstekContent() {
                           <tbody>
                             {groupedByStatusPenawaran[groupTitle].length === 0 ? (
                               <tr>
-                                <td colSpan={12} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
+                                <td colSpan={16} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
                                   Tidak ada pekerjaan di kelompok ini.
                                 </td>
                               </tr>
@@ -623,9 +765,23 @@ function UstekContent() {
                                       />
                                     </td>
                                     <td>
+                                      <LinkCell
+                                        value={p.url_ustek || ''}
+                                        placeholder="https://drive..."
+                                        onSave={(val) => handleUpdatePenawaran(p.id, { url_ustek: val })}
+                                      />
+                                    </td>
+                                    <td>
                                       <StatusBadgeSelect
                                         value={p.status_ustek || p.status_penulisan_ustek || 'Belum'}
                                         onChange={(val) => handleUpdatePenawaran(p.id, { status_ustek: val, status_penulisan_ustek: val })}
+                                      />
+                                    </td>
+                                    <td>
+                                      <ApprovalToggle
+                                        approved={Boolean(p.approval_ustek)}
+                                        disabled={!isApprover}
+                                        onToggle={() => handleUpdatePenawaran(p.id, { approval_ustek: !p.approval_ustek })}
                                       />
                                     </td>
                                     <td>
@@ -642,6 +798,13 @@ function UstekContent() {
                                       />
                                     </td>
                                     <td>
+                                      <ApprovalToggle
+                                        approved={Boolean(p.approval_rab)}
+                                        disabled={!isApprover}
+                                        onToggle={() => handleUpdatePenawaran(p.id, { approval_rab: !p.approval_rab })}
+                                      />
+                                    </td>
+                                    <td>
                                       <LinkCell
                                         value={p.url_ta || ''}
                                         placeholder="https://drive..."
@@ -652,6 +815,13 @@ function UstekContent() {
                                       <StatusBadgeSelect
                                         value={p.status_ta || 'Belum'}
                                         onChange={(val) => handleUpdatePenawaran(p.id, { status_ta: val })}
+                                      />
+                                    </td>
+                                    <td>
+                                      <ApprovalToggle
+                                        approved={Boolean(p.approval_ta)}
+                                        disabled={!isApprover}
+                                        onToggle={() => handleUpdatePenawaran(p.id, { approval_ta: !p.approval_ta })}
                                       />
                                     </td>
                                     <td>

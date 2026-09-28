@@ -49,6 +49,11 @@ class Project(Base):
     url_ta = Column(String, nullable=True)
     status_ta = Column(String, default="Belum") # Belum, On Progress, Selesai
 
+    # Approval fields
+    approval_ustek = Column(Boolean, default=False)
+    approval_rab = Column(Boolean, default=False)
+    approval_ta = Column(Boolean, default=False)
+
     # Finance & Admin fields
     admin = Column(String)
     tanggal_mulai_spk = Column(Date, nullable=True)

@@ -185,6 +185,9 @@ class ProjectBase(BaseModel):
     status_rab: Optional[str] = "Belum"
     url_ta: Optional[str] = None
     status_ta: Optional[str] = "Belum"
+    approval_ustek: bool = False
+    approval_rab: bool = False
+    approval_ta: bool = False
 
     admin: Optional[str] = None
     tanggal_mulai_spk: Optional[date] = None
@@ -229,6 +232,10 @@ class ProjectUpdate(BaseModel):
     status_rab: Optional[str] = None
     url_ta: Optional[str] = None
     status_ta: Optional[str] = None
+    approval_ustek: Optional[bool] = None
+    approval_rab: Optional[bool] = None
+    approval_ta: Optional[bool] = None
+
 
     admin: Optional[str] = None
     tanggal_mulai_spk: Optional[date] = None

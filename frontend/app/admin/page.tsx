@@ -25,6 +25,7 @@ function FinanceContent() {
   const [filterAdminStatus, setFilterAdminStatus] = useState<'ALL' | 'BELUM_DOKUMEN' | 'BELUM_LUNAS' | 'SELESAI'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [modalInitialTab, setModalInitialTab] = useState<'info' | 'stages' | 'billings'>('info');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroupCollapse = (key: string) => {
@@ -63,11 +64,14 @@ function FinanceContent() {
   }, [internalUsers]);
 
   const updateLink = async (id: number, field: string, value: any) => {
+    const val = value === '' ? null : value;
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: val } : p))
+    );
     await fetchWithAuth(`/projects/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ [field]: value === '' ? null : value }),
+      body: JSON.stringify({ [field]: val }),
     });
-    loadProjects();
   };
 
   const getAdminCategory = (p: any) => {
@@ -273,15 +277,15 @@ function FinanceContent() {
                             <tr>
                               <th style={{ width: '40px', textAlign: 'center' }}>No.</th>
                               <th>Nama Pekerjaan</th>
-                              <th>Pemberi Kerja</th>
-                              <th>Nilai (Rp)</th>
+                              <th>Nama Lembaga</th>
+                              <th>Nilai Project (Rp)</th>
                               <th>PIC Finance</th>
                               <th>Periode SPK</th>
                               <th>Dokumen SPK</th>
                               <th>Dokumen BAST</th>
                               <th>Dokumen Referensi</th>
                               <th>Status Admin</th>
-                              <th style={{ textAlign: 'right' }}>Aksi</th>
+                              <th style={{ textAlign: 'right', minWidth: '220px' }}>Detail & Termin</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -385,14 +389,31 @@ function FinanceContent() {
                                         </span>
                                       )}
                                     </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                      <button
-                                        className="btn-primary btn-sm btn-secondary"
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                                        onClick={() => setSelectedProject(p)}
-                                      >
-                                        <IconEye size={14} /> Termin
-                                      </button>
+                                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                      <div style={{ display: 'inline-flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                                        <button
+                                          className="btn-primary btn-sm btn-secondary"
+                                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                                          onClick={() => {
+                                            setModalInitialTab('info');
+                                            setSelectedProject(p);
+                                          }}
+                                          title="Lihat Detail Informasi Pekerjaan"
+                                        >
+                                          <IconEye size={14} /> Detail Info
+                                        </button>
+                                        <button
+                                          className="btn-primary btn-sm"
+                                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: '#8b5cf6', borderColor: '#7c3aed', color: '#fff' }}
+                                          onClick={() => {
+                                            setModalInitialTab('billings');
+                                            setSelectedProject(p);
+                                          }}
+                                          title="Kelola Termin Penagihan"
+                                        >
+                                          <IconFinance size={14} color="#fff" /> Termin Penagihan
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -410,7 +431,12 @@ function FinanceContent() {
         </>
       )}
 
-      <DetailModal project={selectedProject} onClose={() => setSelectedProject(null)} onRefresh={loadProjects} />
+      <DetailModal 
+        project={selectedProject} 
+        initialTab={modalInitialTab} 
+        onClose={() => setSelectedProject(null)} 
+        onRefresh={loadProjects} 
+      />
     </div>
   );
 }

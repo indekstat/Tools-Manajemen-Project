@@ -42,11 +42,18 @@ function MarketingContent() {
   };
 
   const handleUpdateBiddingStage = async (stageId: number, fields: Record<string, any>) => {
+    setProjects((prev) =>
+      prev.map((p) => ({
+        ...p,
+        bidding_stages: (p.bidding_stages || []).map((st: any) =>
+          st.id === stageId ? { ...st, ...fields } : st
+        ),
+      }))
+    );
     await fetchWithAuth(`/bidding-stages/${stageId}`, {
       method: 'PUT',
       body: JSON.stringify(fields),
     });
-    loadProjects();
   };
 
   const handleAddBiddingStage = async (projectId: number, namaTahapan: string) => {
@@ -232,11 +239,13 @@ const getTahapanRank = (key: string) => {
   };
 
   const handleUpdate = async (id: number, fields: Record<string, any>) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...fields } : p))
+    );
     await fetchWithAuth(`/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(fields),
     });
-    loadProjects();
   };
 
   const rawBiddingProjects = projects.filter((p) => (p.jenis_mekanisme || 'Bidding') === 'Bidding');
@@ -478,10 +487,11 @@ const getTahapanRank = (key: string) => {
               <span className="stat-sub">Tidak berlanjut</span>
             </div>
             <div className="stat-card finance">
-              <span className="stat-label">Total Penunjukan Langsung (PL)</span>
+              <span className="stat-label">Pengadaan Langsung (PL)</span>
               <span className="stat-value">{overviewMetrics.totalPL}</span>
               <span className="stat-sub">Nilai: {formatCurrencySmart(overviewMetrics.totalPLNilai)}</span>
             </div>
+
           </div>
 
           {/* TAHAPAN SELESI & PRIORITAS SELEKSI OVERVIEW */}
@@ -658,7 +668,7 @@ const getTahapanRank = (key: string) => {
                   />
                 </div>
                 <div className="input-group">
-                  <label className="input-label">Pemberi Kerja</label>
+                  <label className="input-label">Nama Lembaga</label>
                   <input
                     className="input-field"
                     placeholder="Instansi / Dinas..."
@@ -767,10 +777,10 @@ const getTahapanRank = (key: string) => {
 
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'end' }}>
                 <div className="input-group" style={{ flex: 1 }}>
-                  <label className="input-label">Keterangan / Link SPSE</label>
+                  <label className="input-label">Keterangan</label>
                   <input
                     className="input-field"
-                    placeholder="Catatan tambahan or link..."
+                    placeholder="Catatan tambahan..."
                     value={keteranganTender}
                     onChange={(e) => setKeteranganTender(e.target.value)}
                   />
@@ -954,7 +964,7 @@ const getTahapanRank = (key: string) => {
                                     <tr>
                                       <th style={{ width: '40px', textAlign: 'center' }}>No.</th>
                                       <th>Nama Pekerjaan</th>
-                                      <th>Pemberi Kerja / Satker</th>
+                                      <th>Nama Lembaga / Satker</th>
                                       <th>Nilai (Rp)</th>
                                       <th>Lokasi</th>
                                       <th>Kategori</th>
@@ -1170,11 +1180,12 @@ const getTahapanRank = (key: string) => {
                                                                   <SearchableSelect
                                                                     compact
                                                                     style={{ margin: 0, width: '160px' }}
-                                                                    value={st.status || 'Onprogress'}
+                                                                    value={st.status === 'Onprogress' ? 'OnProgress' : (st.status || 'Belum')}
                                                                     onChange={(val) => handleUpdateBiddingStage(st.id, { status: val })}
                                                                     options={[
-                                                                      { value: 'Onprogress', label: '🟡 Onprogress' },
                                                                       { value: 'Selesai', label: '🟢 Selesai' },
+                                                                      { value: 'OnProgress', label: '🟡 OnProgress' },
+                                                                      { value: 'Belum', label: '⚪ Belum' },
                                                                     ]}
                                                                   />
                                                                 </td>
@@ -1231,7 +1242,7 @@ const getTahapanRank = (key: string) => {
                     <tr>
                       <th style={{ width: '40px', textAlign: 'center' }}>No.</th>
                       <th>Nama Pekerjaan</th>
-                      <th>Pemberi Kerja / Satker</th>
+                      <th>Nama Lembaga / Satker</th>
                       <th>Nilai (Rp)</th>
                       <th>Lokasi</th>
                       <th>Kategori</th>

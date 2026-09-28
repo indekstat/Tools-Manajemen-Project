@@ -6,7 +6,21 @@ from database import SessionLocal, engine, Base
 import models
 from auth import get_password_hash
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data_migrasi")
+BASE_DIR = os.path.dirname(__file__)
+DATA_DIRS = [
+    os.path.join(BASE_DIR, "data_migrasi", "migrasi-280926"),
+    os.path.join(BASE_DIR, "..", "data_migrasi", "migrasi-280926"),
+    os.path.join(BASE_DIR, "data_migrasi"),
+    os.path.join(BASE_DIR, "..", "data_migrasi"),
+]
+
+def find_file(filenames):
+    for d in DATA_DIRS:
+        for fname in filenames:
+            path = os.path.join(d, fname)
+            if os.path.exists(path):
+                return path
+    return None
 
 def parse_date(val):
     if isinstance(val, (datetime.datetime, datetime.date)):
@@ -57,8 +71,9 @@ def run_migration():
     db.commit()
 
     # 3. Seed Personil Internal as Users
-    f_personil = os.path.join(DATA_DIR, "Project Management_Daftar Personil Internal_Daftar.xlsx")
-    if os.path.exists(f_personil):
+    f_personil = find_file(["Project Management_Daftar Personil Internal_Daftar.xlsx"])
+    if f_personil and os.path.exists(f_personil):
+        print(f"Loading personil file: {f_personil}")
         wb_p = openpyxl.load_workbook(f_personil, data_only=True)
         ws_p = wb_p['Daftar Personil Internal']
         p_rows = list(ws_p.iter_rows(values_only=True))
@@ -88,13 +103,21 @@ def run_migration():
                             password_hash=get_password_hash("password"),
                             role=role,
                             level=level,
-                            divisi=divisi
+                            divisi=divisi,
+                            nama=nama
                         ))
                         seen_usernames.add(uname)
             db.commit()
 
-    # 4. Migrate Projects from "Project Management_Daftar Bidding_Kisi 11.xlsx"
-    f_bidding = os.path.join(DATA_DIR, "Project Management_Daftar Bidding_Kisi 11.xlsx")
+    # 4. Migrate Projects
+    f_bidding = find_file([
+        "Project Management_Daftar Bidding_Kisi 11 (1).xlsx",
+        "Project Management_Daftar Bidding_Kisi 11.xlsx"
+    ])
+    if not f_bidding:
+        raise FileNotFoundError("Could not find Project Management_Daftar Bidding excel file.")
+
+    print(f"Loading bidding project file: {f_bidding}")
     wb_b = openpyxl.load_workbook(f_bidding, data_only=True)
     ws_b = wb_b['Daftar Bidding']
     b_rows = list(ws_b.iter_rows(values_only=True))
@@ -220,9 +243,13 @@ def run_migration():
     db.commit()
     print(f"Successfully migrated {len(project_map)} projects into database!")
 
-    # 5. Migrate Tasks from "Project Management_Manajemen Project_Kisi 3.xlsx"
-    f_tasks = os.path.join(DATA_DIR, "Project Management_Manajemen Project_Kisi 3.xlsx")
-    if os.path.exists(f_tasks):
+    # 5. Migrate Tasks
+    f_tasks = find_file([
+        "Project Management_Manajemen Project_Kisi 3 (1).xlsx",
+        "Project Management_Manajemen Project_Kisi 3.xlsx"
+    ])
+    if f_tasks and os.path.exists(f_tasks):
+        print(f"Loading tasks file: {f_tasks}")
         wb_t = openpyxl.load_workbook(f_tasks, data_only=True)
         ws_t = wb_t['Manajemen Project']
         t_rows = list(ws_t.iter_rows(values_only=True))
@@ -261,6 +288,7 @@ def run_migration():
         print(f"Successfully migrated {tasks_added} tasks!")
     
     db.close()
+    print("Database migration completed successfully!")
 
 if __name__ == "__main__":
     run_migration()

@@ -17,6 +17,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True, index=True)
     nama_pekerjaan = Column(String, index=True)
     nilai_kontrak = Column(Float, default=0.0)
+    nilai_project_deal = Column(Float, default=0.0, nullable=True)
     jenis_mekanisme = Column(String, default="Bidding") # Bidding, PL
     tahapan = Column(String) # Upload PQ, Evaluasi PQ, Pembuktian, Penyusunan Ustek, Upload Ustek
     status = Column(String)

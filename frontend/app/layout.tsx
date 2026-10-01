@@ -3,6 +3,14 @@ import type { Metadata } from 'next';
 import Sidebar from '../components/Sidebar';
 import AuthGuard from '../components/AuthGuard';
 
+import { Viewport } from 'next';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: 'InDeTrack - Project Tracking System',
   description: 'Premium internal tool for tracking project progress',

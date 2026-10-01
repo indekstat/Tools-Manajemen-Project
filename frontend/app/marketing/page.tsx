@@ -148,18 +148,25 @@ function MarketingContent() {
     return [...Array.from(set), '+ Tambah Baru'];
   }, [projects]);
 
-const TAHAPAN_ORDER = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penyusunan Ustek', 'Upload Ustek'];
+const TAHAPAN_ORDER = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penawaran'];
 
 const getTahapanRank = (key: string) => {
-  const index = TAHAPAN_ORDER.findIndex((t) => key.toLowerCase().includes(t.toLowerCase()));
+  if (!key) return 99;
+  const k = key.toLowerCase();
+  if (k.includes('penyusunan ustek') || k.includes('upload ustek') || k.includes('penawaran')) return 3;
+  const index = TAHAPAN_ORDER.findIndex((t) => k.includes(t.toLowerCase()));
   return index !== -1 ? index : 99;
 };
 
   const getProjectTahapan = (p: any) => {
     if (!p) return 'Upload PQ';
     if (p.bidding_stages && p.bidding_stages.length > 0) {
-      const activeStage = p.bidding_stages.find((st: any) => st.status === 'Onprogress');
-      if (activeStage) return activeStage.nama_tahapan;
+      const activeStage = p.bidding_stages.find((st: any) => st.status === 'Onprogress' || st.status === 'OnProgress');
+      if (activeStage) {
+        let name = activeStage.nama_tahapan;
+        if (name === 'Penyusunan Ustek' || name === 'Upload Ustek') name = 'Penawaran';
+        return name;
+      }
       const selesaiStages = p.bidding_stages.filter((st: any) => st.status === 'Selesai');
       if (selesaiStages.length > 0) {
         const sorted = [...selesaiStages].sort((a: any, b: any) => {
@@ -167,10 +174,19 @@ const getTahapanRank = (key: string) => {
           const rankB = getTahapanRank(b.nama_tahapan);
           return rankB - rankA;
         });
-        return sorted[0].nama_tahapan;
+        const highestDoneRank = getTahapanRank(sorted[0].nama_tahapan);
+        if (highestDoneRank < 3) {
+          return TAHAPAN_ORDER[highestDoneRank + 1];
+        } else {
+          return 'Penawaran';
+        }
       }
     }
-    return p.tahapan || 'Upload PQ';
+    let rawTahapan = p.tahapan || 'Upload PQ';
+    if (rawTahapan === 'Penyusunan Ustek' || rawTahapan === 'Upload Ustek') {
+      return 'Penawaran';
+    }
+    return rawTahapan;
   };
 
   // Cascading Logic: Available Tahapan options based on selected Status Bidding filter
@@ -361,8 +377,8 @@ const getTahapanRank = (key: string) => {
     const menangBidding = rawBiddingProjects.filter((p) => p.status_project === 'Menang').length;
     const kalahBidding = rawBiddingProjects.filter((p) => p.status_project === 'Kalah').length;
     const totalPL = rawPlProjects.length;
-    const totalBiddingNilai = rawBiddingProjects.reduce((acc, curr) => acc + (curr.nilai_kontrak || 0), 0);
-    const totalPLNilai = rawPlProjects.reduce((acc, curr) => acc + (curr.nilai_kontrak || 0), 0);
+    const totalBiddingNilai = rawBiddingProjects.reduce((acc, curr) => acc + (curr.nilai_project_deal || curr.nilai_kontrak || 0), 0);
+    const totalPLNilai = rawPlProjects.reduce((acc, curr) => acc + (curr.nilai_project_deal || curr.nilai_kontrak || 0), 0);
     const priorityCount = rawBiddingProjects.filter((p) => p.prioritas === 'Priority').length;
     const nonPriorityCount = rawBiddingProjects.filter((p) => p.prioritas === 'Non-Priority').length;
     const undertableCount = rawBiddingProjects.filter((p) => p.prioritas === 'Deal Undertable').length;
@@ -383,7 +399,7 @@ const getTahapanRank = (key: string) => {
 
   // Tahapan Seleksi Breakdown (Ongoing vs Total Agregat)
   const tahapanSeleksiBreakdown = useMemo(() => {
-    const standardStages = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penyusunan Ustek', 'Upload Ustek'];
+    const standardStages = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penawaran'];
     const ongoingMap: Record<string, { count: number; totalNilai: number; projects: any[] }> = {};
     const totalMap: Record<string, { count: number; totalNilai: number; projects: any[] }> = {};
 
@@ -400,7 +416,7 @@ const getTahapanRank = (key: string) => {
         ongoingMap[stage] = { count: 0, totalNilai: 0, projects: [] };
       }
       ongoingMap[stage].count += 1;
-      ongoingMap[stage].totalNilai += p.nilai_kontrak || 0;
+      ongoingMap[stage].totalNilai += p.nilai_project_deal || p.nilai_kontrak || 0;
       ongoingMap[stage].projects.push(p);
     });
 
@@ -410,7 +426,7 @@ const getTahapanRank = (key: string) => {
         totalMap[stage] = { count: 0, totalNilai: 0, projects: [] };
       }
       totalMap[stage].count += 1;
-      totalMap[stage].totalNilai += p.nilai_kontrak || 0;
+      totalMap[stage].totalNilai += p.nilai_project_deal || p.nilai_kontrak || 0;
       totalMap[stage].projects.push(p);
     });
 
@@ -461,6 +477,19 @@ const getTahapanRank = (key: string) => {
         <h1 className="page-title">Kontrol Bidding & Penunjukan Langsung (IR)</h1>
         <p className="page-desc">Workspace Marketing untuk mengelola Kontrol Bidding (Seleksi) dan Penunjukan Langsung.</p>
       </div>
+
+      <div style={{
+        background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '1rem',
+        marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem', lineHeight: 1.5
+      }}>
+        <strong>💡 Panduan Fitur Marketing:</strong>
+        <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+          <li style={{ marginBottom: '0.25rem' }}><strong>Pembuatan Project:</strong> Saat klik "+ Tambah Project", pastikan mengisi <strong>Nilai Kontrak (Awal)</strong>.</li>
+          <li style={{ marginBottom: '0.25rem' }}><strong>Nilai Project:</strong> Nilai ini akan dipakai di semua dashboard. Jika nanti saat eksekusi ada negosiasi nilai, tim Admin/Finance akan meng-update-nya jadi <strong>Nilai Deal</strong>.</li>
+          <li><strong>Detail Info:</strong> Klik tombol Detail pada baris tabel untuk melihat dan mengubah informasi spesifik project.</li>
+        </ul>
+      </div>
+
 
       {/* OVERVIEW SUB-MENU VIEW */}
       {currentView === 'overview' ? (
@@ -989,7 +1018,7 @@ const getTahapanRank = (key: string) => {
                                       items.map((p: any, idx: number) => {
                                         const isStageExpanded = Boolean(expandedStageProjects[p.id]);
                                         const completedStagesCount = (p.bidding_stages || []).filter((s: any) => s.status === 'Selesai').length;
-                                        const totalStagesCount = (p.bidding_stages || []).length || 5;
+                                        const totalStagesCount = (p.bidding_stages || []).length || 4;
 
                                         return (
                                           <React.Fragment key={p.id}>
@@ -1003,7 +1032,7 @@ const getTahapanRank = (key: string) => {
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}><ClickableText text={p.satuan_kerja || '-'} /></div>
                                               </td>
                                               <td style={{ color: '#34d399', fontWeight: 700 }}>
-                                                Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                                                Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}
                                               </td>
                                               <td>{p.lokasi || 'Pusat'}</td>
                                               <td>
@@ -1272,7 +1301,7 @@ const getTahapanRank = (key: string) => {
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}><ClickableText text={p.satuan_kerja || '-'} /></div>
                           </td>
                           <td style={{ color: '#34d399', fontWeight: 700 }}>
-                            Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                            Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}
                           </td>
                           <td>{p.lokasi || 'Pusat'}</td>
                           <td>
@@ -1416,7 +1445,7 @@ const getTahapanRank = (key: string) => {
                           <td style={{ textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                           <td style={{ fontWeight: 600 }}>{p.nama_pekerjaan}</td>
                           <td>{p.pemberi_kerja || '-'}</td>
-                          <td style={{ color: '#34d399', fontWeight: 700 }}>Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}</td>
+                          <td style={{ color: '#34d399', fontWeight: 700 }}>Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}</td>
                           <td>{getProjectTahapan(p)}</td>
                           <td>{p.status_project || 'Ongoing'}</td>
                           <td style={{ textAlign: 'right' }}>

@@ -27,7 +27,7 @@ export default function SubstansiPage() {
         if (Array.isArray(data)) {
           const ustekProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
-            (p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
+            (p.tahapan === 'Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
           );
           setProjects(ustekProjects);
         }
@@ -64,6 +64,18 @@ export default function SubstansiPage() {
             : 'Kelola dokumen dan penulisan Usulan Teknis (Ustek).'}
         </p>
       </div>
+
+      <div style={{
+        background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '1rem',
+        marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem', lineHeight: 1.5
+      }}>
+        <strong>💡 Panduan Fitur Substansi:</strong>
+        <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+          <li style={{ marginBottom: '0.25rem' }}><strong>Manajemen Tahapan:</strong> Setiap project bisa memiliki daftar tahapan pekerjaan yang berbeda-beda. Klik tombol Detail dan buka tab <strong>Tahapan Pelaksanaan</strong> untuk menambah jadwal/tahapan baru.</li>
+          <li><strong>Checklist Selesai:</strong> Jika sebuah project sudah sepenuhnya selesai 100%, tandai dengan tombol Selesai di tab Detail.</li>
+        </ul>
+      </div>
+
 
       <div className="glass-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

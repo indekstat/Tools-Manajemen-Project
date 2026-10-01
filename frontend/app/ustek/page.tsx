@@ -233,7 +233,7 @@ function UstekContent() {
           // Filter pekerjaan yang masuk tahapan Ustek DAN status bidding Ongoing
           const ustekProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
-            (p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek' || p.jenis_mekanisme === 'PL')
+            (p.tahapan === 'Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek' || p.jenis_mekanisme === 'PL')
           );
           setProjects(ustekProjects);
         }
@@ -358,6 +358,18 @@ function UstekContent() {
             <h1 className="page-title">Kontrol Penawaran</h1>
             <p className="page-desc">Monitoring & Pengelolaan Penawaran (Ustek, RAB, TA) untuk pekerjaan Bidding & PL.</p>
           </div>
+
+      <div style={{
+        background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '1rem',
+        marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem', lineHeight: 1.5
+      }}>
+        <strong>💡 Panduan Fitur Penawaran:</strong>
+        <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+          <li style={{ marginBottom: '0.25rem' }}><strong>Pengisian Dokumen:</strong> Lembar Kerja ini khusus untuk memonitoring dokumen Penawaran seperti Ustek, RAB, dan Tenaga Ahli (TA).</li>
+          <li><strong>Update Tahapan:</strong> Untuk memperbarui persentase penyusunan dokumen, klik tombol Detail dan masuk ke tab informasi.</li>
+        </ul>
+      </div>
+
         </div>
       </div>
 
@@ -565,7 +577,7 @@ function UstekContent() {
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}><ClickableText text={p.satuan_kerja || '-'} /></div>
                           </td>
                           <td style={{ color: '#34d399', fontWeight: 700 }}>
-                            Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                            Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}
                           </td>
                           <td>
                             <span className={`badge ${p.status_ustek === 'Selesai' || p.status_penulisan_ustek === 'Selesai' ? 'badge-done' : p.status_ustek === 'On Progress' ? 'badge-pending' : ''}`}>
@@ -752,7 +764,7 @@ function UstekContent() {
                                       <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}><ClickableText text={p.satuan_kerja || '-'} /></div>
                                     </td>
                                     <td style={{ color: '#34d399', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                      Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                                      Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}
                                     </td>
                                     <td>
                                       <SearchableSelect

@@ -22,7 +22,7 @@ export default function UstekGovPage() {
           const govProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
             (p.divisi_substansi === 'Gov' || p.kategori_project === 'Gov') &&
-            (p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
+            (p.tahapan === 'Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
           );
           setProjects(govProjects);
         }
@@ -93,7 +93,7 @@ export default function UstekGovPage() {
                   projects.map((p) => (
                     <tr key={p.id}>
                       <td style={{ fontWeight: 600 }}>{p.nama_pekerjaan}</td>
-                      <td>Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}</td>
+                      <td>Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}</td>
                       <td>
                         <span
                           className={`badge ${

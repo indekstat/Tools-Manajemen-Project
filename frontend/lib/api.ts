@@ -61,7 +61,7 @@ export const isAdministrasiSelesai = (p: any) => {
   const totalPaid = (p.billings || [])
     .filter((b: any) => b.status === 'Sudah dibayarkan')
     .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
-  const isPaidInFull = totalPaid >= (p.nilai_kontrak || 0) && (p.nilai_kontrak || 0) > 0;
+  const isPaidInFull = totalPaid >= (p.nilai_project_deal || p.nilai_kontrak || 0) && (p.nilai_project_deal || p.nilai_kontrak || 0) > 0;
   const hasDocs = Boolean(p.link_spk && p.link_bast && p.link_referensi);
   return isPaidInFull && hasDocs;
 };

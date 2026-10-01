@@ -51,21 +51,41 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
 
   const getProjectTahapan = (p: any) => {
     if (!p) return 'Upload PQ';
+    const TAHAPAN_ORDER = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penawaran'];
+    const getTahapanRank = (key: string) => {
+      if (!key) return 99;
+      const k = key.toLowerCase();
+      if (k.includes('penyusunan ustek') || k.includes('upload ustek') || k.includes('penawaran')) return 3;
+      const index = TAHAPAN_ORDER.findIndex((t) => k.includes(t.toLowerCase()));
+      return index !== -1 ? index : 99;
+    };
     if (p.bidding_stages && p.bidding_stages.length > 0) {
-      const activeStage = p.bidding_stages.find((st: any) => st.status === 'Onprogress');
-      if (activeStage) return activeStage.nama_tahapan;
+      const activeStage = p.bidding_stages.find((st: any) => st.status === 'Onprogress' || st.status === 'OnProgress');
+      if (activeStage) {
+        let name = activeStage.nama_tahapan;
+        if (name === 'Penyusunan Ustek' || name === 'Upload Ustek') name = 'Penawaran';
+        return name;
+      }
       const selesaiStages = p.bidding_stages.filter((st: any) => st.status === 'Selesai');
       if (selesaiStages.length > 0) {
         const sorted = [...selesaiStages].sort((a: any, b: any) => {
-          const TAHAPAN_ORDER = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penyusunan Ustek', 'Upload Ustek'];
-          const rankA = TAHAPAN_ORDER.findIndex((t) => a.nama_tahapan.toLowerCase().includes(t.toLowerCase()));
-          const rankB = TAHAPAN_ORDER.findIndex((t) => b.nama_tahapan.toLowerCase().includes(t.toLowerCase()));
-          return (rankB !== -1 ? rankB : 99) - (rankA !== -1 ? rankA : 99);
+          const rankA = getTahapanRank(a.nama_tahapan);
+          const rankB = getTahapanRank(b.nama_tahapan);
+          return rankB - rankA;
         });
-        return sorted[0].nama_tahapan;
+        const highestDoneRank = getTahapanRank(sorted[0].nama_tahapan);
+        if (highestDoneRank < 3) {
+          return TAHAPAN_ORDER[highestDoneRank + 1];
+        } else {
+          return 'Penawaran';
+        }
       }
     }
-    return p.tahapan || 'Upload PQ';
+    let rawTahapan = p.tahapan || 'Upload PQ';
+    if (rawTahapan === 'Penyusunan Ustek' || rawTahapan === 'Upload Ustek') {
+      return 'Penawaran';
+    }
+    return rawTahapan;
   };
 
   const canManageFinance = userRole === 'Finance' || userRole === 'Superadmin';
@@ -92,7 +112,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
     .filter((b: any) => b.status === 'Sudah dibayarkan')
     .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
   
-  const isPaidInFull = totalPaid >= (project.nilai_kontrak || 0) && (project.nilai_kontrak || 0) > 0;
+  const isPaidInFull = totalPaid >= (project.nilai_project_deal || project.nilai_kontrak || 0) && (project.nilai_project_deal || project.nilai_kontrak || 0) > 0;
   const hasAllDocs = Boolean(project.link_spk && project.link_bast && project.link_referensi);
   const isProjectSelesai = isProjectSelesaiAkhir(project);
   const urgensi = calculateUrgensiDeadline();
@@ -110,6 +130,19 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
       })
     });
     if (onRefresh) onRefresh();
+  };
+
+  
+  const updateProjectField = async (field: string, value: any) => {
+    try {
+      await fetchWithAuth(`/projects/${project.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ [field]: value })
+      });
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('Failed to update project field', e);
+    }
   };
 
   const executeToggleStatusAdministrasi = async () => {
@@ -295,10 +328,20 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
               </div>
 
               <div className="detail-item">
-                <span className="detail-label">Nilai Pekerjaan (Rupiah)</span>
+                <span className="detail-label">Nilai Pekerjaan (Kontrak Awal)</span>
                 <span className="detail-value" style={{ fontWeight: 700, color: '#34d399' }}>
                   Rp {(project.nilai_kontrak || 0).toLocaleString('id-ID')}
                 </span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Nilai Project Deal (Final)</span>
+                <input
+                  type="number"
+                  className="input-field"
+                  style={{ margin: 0, padding: '0.2rem 0.4rem', width: '100%', fontWeight: 700, color: '#34d399' }}
+                  defaultValue={project.nilai_project_deal || project.nilai_kontrak || 0}
+                  onBlur={(e) => updateProjectField('nilai_project_deal', parseFloat(e.target.value) || 0)}
+                />
               </div>
 
               <div className="detail-item">
@@ -406,21 +449,42 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                 </div>
                 <div className="link-item">
                   <span className="detail-label">Link SPK:</span>
-                  {project.link_spk ? (
-                    <ClickableText text={project.link_spk} buttonLabel="Buka Dokumen SPK" />
-                  ) : <span className="text-dim">Belum Upload SPK</span>}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {project.link_spk && <ClickableText text={project.link_spk} buttonLabel="Buka Dokumen SPK" />}
+                    <input
+                      className="input-field"
+                      placeholder="Edit URL..."
+                      style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.75rem' }}
+                      defaultValue={project.link_spk || ''}
+                      onBlur={(e) => updateProjectField('link_spk', e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="link-item">
                   <span className="detail-label">Link BAST:</span>
-                  {project.link_bast ? (
-                    <ClickableText text={project.link_bast} buttonLabel="Buka Dokumen BAST" />
-                  ) : <span className="text-dim">Belum Upload BAST</span>}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {project.link_bast && <ClickableText text={project.link_bast} buttonLabel="Buka Dokumen BAST" />}
+                    <input
+                      className="input-field"
+                      placeholder="Edit URL..."
+                      style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.75rem' }}
+                      defaultValue={project.link_bast || ''}
+                      onBlur={(e) => updateProjectField('link_bast', e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="link-item">
                   <span className="detail-label">Link Surat Referensi:</span>
-                  {project.link_referensi ? (
-                    <ClickableText text={project.link_referensi} buttonLabel="Buka Surat Referensi" />
-                  ) : <span className="text-dim">Belum Upload Referensi</span>}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {project.link_referensi && <ClickableText text={project.link_referensi} buttonLabel="Buka Surat Referensi" />}
+                    <input
+                      className="input-field"
+                      placeholder="Edit URL Referensi..."
+                      style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.75rem' }}
+                      defaultValue={project.link_referensi || ''}
+                      onBlur={(e) => updateProjectField('link_referensi', e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -629,13 +693,13 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
             <div className="glass-card" style={{ marginBottom: '1.25rem', padding: '1rem', background: 'rgba(15,23,42,0.6)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
                 <span>Total Terbayar: <strong>Rp {totalPaid.toLocaleString('id-ID')}</strong></span>
-                <span>Target: <strong>Rp {(project.nilai_kontrak || 0).toLocaleString('id-ID')}</strong></span>
+                <span>Target: <strong>Rp {(project.nilai_project_deal || project.nilai_kontrak || 0).toLocaleString('id-ID')}</strong></span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div
                   style={{
                     height: '100%',
-                    width: `${Math.min(100, ((totalPaid / (project.nilai_kontrak || 1)) * 100))}%`,
+                    width: `${Math.min(100, ((totalPaid / (project.nilai_project_deal || project.nilai_kontrak || 1)) * 100))}%`,
                     background: isPaidInFull ? '#10b981' : '#3b82f6',
                     transition: 'width 0.3s ease'
                   }}

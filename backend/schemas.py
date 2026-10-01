@@ -155,6 +155,7 @@ class ProjectDashboardResponse(ProjectDashboardBase):
 class ProjectBase(BaseModel):
     nama_pekerjaan: str
     nilai_kontrak: float = 0.0
+    nilai_project_deal: Optional[float] = 0.0
     jenis_mekanisme: Optional[str] = "Bidding"
     tahapan: Optional[str] = "Upload PQ"
     status: Optional[str] = None
@@ -202,6 +203,7 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     nama_pekerjaan: Optional[str] = None
     nilai_kontrak: Optional[float] = None
+    nilai_project_deal: Optional[float] = None
     jenis_mekanisme: Optional[str] = None
     tahapan: Optional[str] = None
     status: Optional[str] = None

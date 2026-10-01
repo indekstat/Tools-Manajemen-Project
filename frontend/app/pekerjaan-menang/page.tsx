@@ -135,7 +135,7 @@ function PekerjaanMenangContent() {
     return result;
   }, [filteredProjects, filterStatusSubstansi]);
 
-  const totalNilaiMenang = filteredProjects.reduce((acc, curr) => acc + (curr.nilai_kontrak || 0), 0);
+  const totalNilaiMenang = filteredProjects.reduce((acc, curr) => acc + (curr.nilai_project_deal || curr.nilai_kontrak || 0), 0);
   const totalGovCount = projects.filter((p) => p.divisi_substansi === 'Gov' || p.kategori_project === 'Gov').length;
   const totalPolCount = projects.filter((p) => p.divisi_substansi === 'Pol' || p.kategori_project === 'Pol').length;
 
@@ -148,6 +148,18 @@ function PekerjaanMenangContent() {
             <h1 className="page-title">Pekerjaan Menang (Gov & Pol)</h1>
             <p className="page-desc">Monitoring pelaksanaan project per divisi dengan tahapan unik per project.</p>
           </div>
+
+      <div style={{
+        background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '1rem',
+        marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem', lineHeight: 1.5
+      }}>
+        <strong>💡 Panduan Fitur Pekerjaan Menang:</strong>
+        <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+          <li style={{ marginBottom: '0.25rem' }}><strong>Custom Tahapan:</strong> Di sini Anda dapat memonitor pelaksanaan project. Gunakan tombol Detail Info untuk menambah tahapan kustom per project.</li>
+          <li><strong>Kolaborasi Dokumen:</strong> Pastikan Anda menggunakan tautan (link) cloud (seperti Google Drive) untuk dokumen-dokumen project agar bisa diakses tim lain.</li>
+        </ul>
+      </div>
+
         </div>
       </div>
 
@@ -312,7 +324,7 @@ function PekerjaanMenangContent() {
                                       </span>
                                     </td>
                                     <td style={{ color: '#34d399', fontWeight: 700 }}>
-                                      Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                                      Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}
                                     </td>
                                     <td>{p.lokasi || 'Pusat'}</td>
                                     <td>

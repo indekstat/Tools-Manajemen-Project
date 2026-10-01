@@ -116,7 +116,7 @@ function FinanceContent() {
   }, [filteredProjects]);
 
   const overviewMetrics = useMemo(() => {
-    const totalWonValue = projects.reduce((acc, curr) => acc + (curr.nilai_kontrak || 0), 0);
+    const totalWonValue = projects.reduce((acc, curr) => acc + (curr.nilai_project_deal || curr.nilai_kontrak || 0), 0);
     const totalPaidValue = projects.reduce((acc, curr) => {
       const paid = (curr.billings || [])
         .filter((b: any) => b.status === 'Sudah dibayarkan')
@@ -146,6 +146,23 @@ function FinanceContent() {
             <p className="page-desc">Pengelolaan Billing dikhususkan untuk seluruh Pekerjaan Menang & Penunjukan Langsung (PL).</p>
           </div>
         </div>
+      </div>
+
+      <div style={{
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: '8px',
+        padding: '1rem',
+        marginBottom: '1.5rem',
+        color: '#1e3a8a',
+        fontSize: '0.9rem',
+        lineHeight: 1.5
+      }}>
+        <strong>💡 Panduan Fitur:</strong>
+        <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+          <li style={{ marginBottom: '0.25rem' }}><strong>Nilai Project Deal:</strong> Silakan edit Nilai Project di kolom tabel jika ada perubahan nilai final setelah negosiasi. Semua kalkulasi termin dan dashboard otomatis akan menggunakan nilai Deal ini (atau Nilai Kontrak jika nilai Deal kosong).</li>
+          <li><strong>Edit Dokumen (SPK, BAST, Ref):</strong> Anda sekarang dapat langsung menempel (*paste*) atau mengedit *link* dokumen secara langsung di kotak isian yang ada di tabel, meskipun dokumen sudah pernah di-*upload* sebelumnya.</li>
+        </ul>
       </div>
 
       {/* SUB-MENU OVERVIEW VIEW */}
@@ -278,7 +295,8 @@ function FinanceContent() {
                               <th style={{ width: '40px', textAlign: 'center' }}>No.</th>
                               <th>Nama Pekerjaan</th>
                               <th>Nama Lembaga</th>
-                              <th>Nilai Project (Rp)</th>
+                              <th>Nilai Awal (Rp)</th>
+                              <th>Nilai Deal (Rp)</th>
                               <th>PIC Finance</th>
                               <th>Periode SPK</th>
                               <th>Dokumen SPK</th>
@@ -291,7 +309,7 @@ function FinanceContent() {
                           <tbody>
                             {groupedByAdminStatus[groupTitle].length === 0 ? (
                               <tr>
-                                <td colSpan={11} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
+                                <td colSpan={12} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
                                   Tidak ada data di kelompok ini.
                                 </td>
                               </tr>
@@ -306,8 +324,23 @@ function FinanceContent() {
                                       <ClickableText text={p.nama_pekerjaan} />
                                     </td>
                                     <td><ClickableText text={p.pemberi_kerja || '-'} /></td>
-                                    <td style={{ color: '#34d399', fontWeight: 700 }}>
+                                    <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
                                       Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                                    </td>
+                                    <td style={{ color: '#34d399', fontWeight: 700 }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                        <span>Rp {(p.nilai_project_deal || 0).toLocaleString('id-ID')}</span>
+                                        <button
+                                          className="btn-primary btn-sm btn-secondary"
+                                          style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
+                                          onClick={() => {
+                                            const newDeal = window.prompt("Masukkan Nilai Deal (Rp) baru:", p.nilai_project_deal?.toString() || p.nilai_kontrak?.toString() || "");
+                                            if (newDeal !== null) updateLink(p.id, 'nilai_project_deal', parseFloat(newDeal) || 0);
+                                          }}
+                                        >
+                                          ✏️ Edit Nilai Deal
+                                        </button>
+                                      </div>
                                     </td>
                                     <td>
                                       <SearchableSelect
@@ -340,43 +373,49 @@ function FinanceContent() {
                                       </div>
                                     </td>
                                     <td>
-                                      {p.link_spk ? (
-                                        <ClickableText text={p.link_spk} buttonLabel="Buka SPK" />
-                                      ) : (
-                                        <input
-                                          className="input-field"
-                                          placeholder="URL SPK..."
-                                          style={{ margin: 0, padding: '0.25rem 0.4rem', width: '110px' }}
-                                          defaultValue={p.link_spk || ''}
-                                          onBlur={(e) => updateLink(p.id, 'link_spk', e.target.value)}
-                                        />
-                                      )}
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                        {p.link_spk ? <ClickableText text={p.link_spk} buttonLabel="Buka SPK" /> : <span className="text-dim" style={{fontSize: '0.75rem'}}>Belum Upload</span>}
+                                        <button
+                                          className="btn-primary btn-sm btn-secondary"
+                                          style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
+                                          onClick={() => {
+                                            const newUrl = window.prompt("Masukkan URL SPK baru:", p.link_spk || "");
+                                            if (newUrl !== null) updateLink(p.id, 'link_spk', newUrl);
+                                          }}
+                                        >
+                                          ✏️ Edit URL SPK
+                                        </button>
+                                      </div>
                                     </td>
                                     <td>
-                                      {p.link_bast ? (
-                                        <ClickableText text={p.link_bast} buttonLabel="Buka BAST" />
-                                      ) : (
-                                        <input
-                                          className="input-field"
-                                          placeholder="URL BAST..."
-                                          style={{ margin: 0, padding: '0.25rem 0.4rem', width: '110px' }}
-                                          defaultValue={p.link_bast || ''}
-                                          onBlur={(e) => updateLink(p.id, 'link_bast', e.target.value)}
-                                        />
-                                      )}
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                        {p.link_bast ? <ClickableText text={p.link_bast} buttonLabel="Buka BAST" /> : <span className="text-dim" style={{fontSize: '0.75rem'}}>Belum Upload</span>}
+                                        <button
+                                          className="btn-primary btn-sm btn-secondary"
+                                          style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
+                                          onClick={() => {
+                                            const newUrl = window.prompt("Masukkan URL BAST baru:", p.link_bast || "");
+                                            if (newUrl !== null) updateLink(p.id, 'link_bast', newUrl);
+                                          }}
+                                        >
+                                          ✏️ Edit URL BAST
+                                        </button>
+                                      </div>
                                     </td>
                                     <td>
-                                      {p.link_referensi ? (
-                                        <ClickableText text={p.link_referensi} buttonLabel="Buka Ref" />
-                                      ) : (
-                                        <input
-                                          className="input-field"
-                                          placeholder="URL Ref..."
-                                          style={{ margin: 0, padding: '0.25rem 0.4rem', width: '110px' }}
-                                          defaultValue={p.link_referensi || ''}
-                                          onBlur={(e) => updateLink(p.id, 'link_referensi', e.target.value)}
-                                        />
-                                      )}
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                        {p.link_referensi ? <ClickableText text={p.link_referensi} buttonLabel="Buka Ref" /> : <span className="text-dim" style={{fontSize: '0.75rem'}}>Belum Upload</span>}
+                                        <button
+                                          className="btn-primary btn-sm btn-secondary"
+                                          style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
+                                          onClick={() => {
+                                            const newUrl = window.prompt("Masukkan URL Ref baru:", p.link_referensi || "");
+                                            if (newUrl !== null) updateLink(p.id, 'link_referensi', newUrl);
+                                          }}
+                                        >
+                                          ✏️ Edit URL Ref
+                                        </button>
+                                      </div>
                                     </td>
                                     <td>
                                       {isAdminDone ? (

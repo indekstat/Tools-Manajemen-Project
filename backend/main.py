@@ -509,13 +509,15 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
         query = query.filter(models.Project.divisi_substansi == current_user.role)
     projects = query.all()
 
-    # Ensure all Bidding projects have standard 5 stage records created
-    standard_stages = ["Upload PQ", "Evaluasi PQ", "Pembuktian", "Penyusunan Ustek", "Upload Ustek"]
+    # Ensure all Bidding projects have standard 4 stage records created
+    standard_stages = ["Upload PQ", "Evaluasi PQ", "Pembuktian", "Penawaran"]
     
     def get_initial_stage_status(stage_name: str, p_tahapan: str, p_status: str) -> str:
         if (p_status or "").strip().lower() == "menang":
             return "Selesai"
         t_clean = (p_tahapan or "Upload PQ").strip().lower()
+        if "ustek" in t_clean or "penawaran" in t_clean:
+            t_clean = "penawaran"
         curr_idx = 0
         for idx, s in enumerate(standard_stages):
             if s.lower() in t_clean or t_clean in s.lower():
@@ -528,11 +530,33 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
                 break
         if s_idx != -1 and s_idx < curr_idx:
             return "Selesai"
-        return "Onprogress"
+        elif s_idx == curr_idx:
+            return "Onprogress"
+        return "Belum"
 
     modified = False
     for p in projects:
         if (p.jenis_mekanisme or "Bidding") == "Bidding":
+            # Migrate legacy stage names Penyusunan Ustek / Upload Ustek to Penawaran
+            if p.bidding_stages:
+                penawaran_stage = None
+                legacy_stages = []
+                for st in p.bidding_stages:
+                    if st.nama_tahapan == "Penawaran":
+                        penawaran_stage = st
+                    elif st.nama_tahapan in ["Penyusunan Ustek", "Upload Ustek"]:
+                        legacy_stages.append(st)
+                
+                if legacy_stages:
+                    if not penawaran_stage:
+                        penawaran_stage = legacy_stages[0]
+                        penawaran_stage.nama_tahapan = "Penawaran"
+                        legacy_stages = legacy_stages[1:]
+                        modified = True
+                    for leg in legacy_stages:
+                        db.delete(leg)
+                        modified = True
+
             existing_stage_names = [st.nama_tahapan for st in p.bidding_stages] if p.bidding_stages else []
             for name in standard_stages:
                 if name not in existing_stage_names:
@@ -544,6 +568,11 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
                     )
                     db.add(st_obj)
                     modified = True
+
+            if (p.tahapan or "") in ["Penyusunan Ustek", "Upload Ustek"]:
+                p.tahapan = "Penawaran"
+                modified = True
+
     if modified:
         db.commit()
         for p in projects:
@@ -561,10 +590,12 @@ def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(db_project)
 
-    # Auto-initialize standard 5 bidding stages for Bidding tenders
+    # Auto-initialize standard 4 bidding stages for Bidding tenders
     if (db_project.jenis_mekanisme or "Bidding") == "Bidding":
-        standard_stages = ["Upload PQ", "Evaluasi PQ", "Pembuktian", "Penyusunan Ustek", "Upload Ustek"]
+        standard_stages = ["Upload PQ", "Evaluasi PQ", "Pembuktian", "Penawaran"]
         t_clean = (db_project.tahapan or "Upload PQ").strip().lower()
+        if "ustek" in t_clean or "penawaran" in t_clean:
+            t_clean = "penawaran"
         curr_idx = 0
         for idx, s in enumerate(standard_stages):
             if s.lower() in t_clean or t_clean in s.lower():
@@ -572,7 +603,15 @@ def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db)
                 break
 
         for idx, name in enumerate(standard_stages):
-            st_status = "Selesai" if idx < curr_idx or (db_project.status_project or "").lower() == "menang" else "Onprogress"
+            if (db_project.status_project or "").lower() == "menang":
+                st_status = "Selesai"
+            elif idx < curr_idx:
+                st_status = "Selesai"
+            elif idx == curr_idx:
+                st_status = "Onprogress"
+            else:
+                st_status = "Belum"
+
             stage_obj = models.BiddingStage(
                 project_id=db_project.id,
                 nama_tahapan=name,

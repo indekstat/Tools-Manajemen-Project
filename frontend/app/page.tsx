@@ -33,7 +33,7 @@ export default function Dashboard() {
   }, [projects]);
 
   const totalWonCount = wonProjects.length;
-  const totalWonValue = wonProjects.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
+  const totalWonValue = wonProjects.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
 
   // ==========================================
   // SECTION 1: METRICS PROJECT MENANG (PERBANDINGAN JUMLAH & PERBANDINGAN NILAI)
@@ -48,8 +48,8 @@ export default function Dashboard() {
     const govWonCountPct = totalWonCount > 0 ? ((govWonCount / totalWonCount) * 100).toFixed(1) : '0';
     const polWonCountPct = totalWonCount > 0 ? ((polWonCount / totalWonCount) * 100).toFixed(1) : '0';
 
-    const govWonNilai = govWonList.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
-    const polWonNilai = polWonList.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
+    const govWonNilai = govWonList.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
+    const polWonNilai = polWonList.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
     const govWonNilaiPct = totalWonValue > 0 ? ((govWonNilai / totalWonValue) * 100).toFixed(1) : '0';
     const polWonNilaiPct = totalWonValue > 0 ? ((polWonNilai / totalWonValue) * 100).toFixed(1) : '0';
 
@@ -62,8 +62,8 @@ export default function Dashboard() {
     const biddingWonCountPct = totalWonCount > 0 ? ((biddingWonCount / totalWonCount) * 100).toFixed(1) : '0';
     const plWonCountPct = totalWonCount > 0 ? ((plWonCount / totalWonCount) * 100).toFixed(1) : '0';
 
-    const biddingWonNilai = biddingWonList.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
-    const plWonNilai = plWonList.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
+    const biddingWonNilai = biddingWonList.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
+    const plWonNilai = plWonList.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
     const biddingWonNilaiPct = totalWonValue > 0 ? ((biddingWonNilai / totalWonValue) * 100).toFixed(1) : '0';
     const plWonNilaiPct = totalWonValue > 0 ? ((plWonNilai / totalWonValue) * 100).toFixed(1) : '0';
 
@@ -208,7 +208,7 @@ export default function Dashboard() {
       const paid = (p.billings || [])
         .filter((b: any) => b.status === 'Sudah dibayarkan')
         .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
-      return (p.nilai_kontrak || 0) - paid > 0;
+      return (p.nilai_project_deal || p.nilai_kontrak || 0) - paid > 0;
     });
 
     return {
@@ -231,14 +231,14 @@ export default function Dashboard() {
   // ==========================================
   const spkAndValueMetrics = useMemo(() => {
     // A. Contract Value Analysis (Min, Max, Modus Range)
-    const validValueProjects = wonProjects.filter((p) => (p.nilai_kontrak || 0) > 0);
+    const validValueProjects = wonProjects.filter((p) => (p.nilai_project_deal || p.nilai_kontrak || 0) > 0);
     
     let minProject: any = null;
     let maxProject: any = null;
 
     if (validValueProjects.length > 0) {
-      minProject = validValueProjects.reduce((min, p) => (p.nilai_kontrak < min.nilai_kontrak ? p : min), validValueProjects[0]);
-      maxProject = validValueProjects.reduce((max, p) => (p.nilai_kontrak > max.nilai_kontrak ? p : max), validValueProjects[0]);
+      minProject = validValueProjects.reduce((min, p) => (p.nilai_kontrak < (min.nilai_project_deal || min.nilai_kontrak) ? p : min), validValueProjects[0]);
+      maxProject = validValueProjects.reduce((max, p) => (p.nilai_kontrak > (max.nilai_project_deal || max.nilai_kontrak) ? p : max), validValueProjects[0]);
     }
 
     // Contract Value Ranges
@@ -252,10 +252,10 @@ export default function Dashboard() {
 
     const rangeStats = RANGES.map((r) => {
       const projectsInRange = wonProjects.filter((p) => {
-        const val = p.nilai_kontrak || 0;
+        const val = p.nilai_project_deal || p.nilai_kontrak || 0;
         return val >= r.min && val <= r.max;
       });
-      const totalNilai = projectsInRange.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
+      const totalNilai = projectsInRange.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
       return {
         ...r,
         count: projectsInRange.length,
@@ -286,7 +286,7 @@ export default function Dashboard() {
         return d.getMonth() + 1 === monthNum && d.getFullYear() === currentYear;
       });
 
-      const startingNilai = startingProjects.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
+      const startingNilai = startingProjects.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
 
       const endingProjects = wonProjects.filter((p) => {
         const dStr = p.tanggal_spk_berakhir;
@@ -294,7 +294,7 @@ export default function Dashboard() {
         const d = new Date(dStr);
         return d.getMonth() + 1 === monthNum && d.getFullYear() === currentYear;
       });
-      const endingNilai = endingProjects.reduce((sum, p) => sum + (p.nilai_kontrak || 0), 0);
+      const endingNilai = endingProjects.reduce((sum, p) => sum + (p.nilai_project_deal || p.nilai_kontrak || 0), 0);
 
       return {
         monthName: `${name} ${currentYear}`,
@@ -685,11 +685,11 @@ export default function Dashboard() {
           <div
             className="stat-card"
             style={{ cursor: 'pointer', transition: 'transform 0.15s ease', borderLeft: '4px solid #0284c7' }}
-            onClick={() => spkAndValueMetrics.minProject && setDrilldownModal({ title: '📉 Project Nilai Kontrak Terendah', subtitle: `${spkAndValueMetrics.minProject.nama_pekerjaan} (Rp ${spkAndValueMetrics.minProject.nilai_kontrak?.toLocaleString('id-ID')})`, projects: [spkAndValueMetrics.minProject] })}
+            onClick={() => spkAndValueMetrics.minProject && setDrilldownModal({ title: '📉 Project Nilai Kontrak Terendah', subtitle: `${spkAndValueMetrics.minProject.nama_pekerjaan} (Rp ${(spkAndValueMetrics.minProject.nilai_project_deal || spkAndValueMetrics.minProject.nilai_kontrak)?.toLocaleString('id-ID')})`, projects: [spkAndValueMetrics.minProject] })}
           >
             <span className="stat-label">Nilai Project Terendah</span>
             <span className="stat-value" style={{ color: '#0284c7' }}>
-              {spkAndValueMetrics.minProject ? formatCurrencySmart(spkAndValueMetrics.minProject.nilai_kontrak) : 'Rp 0'}
+              {spkAndValueMetrics.minProject ? formatCurrencySmart(spkAndValueMetrics.minProject.nilai_project_deal || spkAndValueMetrics.minProject.nilai_kontrak) : 'Rp 0'}
             </span>
             <span className="stat-sub">
               {spkAndValueMetrics.minProject ? spkAndValueMetrics.minProject.nama_pekerjaan : 'Tidak ada data'}
@@ -700,11 +700,11 @@ export default function Dashboard() {
           <div
             className="stat-card finance"
             style={{ cursor: 'pointer', transition: 'transform 0.15s ease', borderLeft: '4px solid #10b981' }}
-            onClick={() => spkAndValueMetrics.maxProject && setDrilldownModal({ title: '📈 Project Nilai Kontrak Tertinggi', subtitle: `${spkAndValueMetrics.maxProject.nama_pekerjaan} (Rp ${spkAndValueMetrics.maxProject.nilai_kontrak?.toLocaleString('id-ID')})`, projects: [spkAndValueMetrics.maxProject] })}
+            onClick={() => spkAndValueMetrics.maxProject && setDrilldownModal({ title: '📈 Project Nilai Kontrak Tertinggi', subtitle: `${spkAndValueMetrics.maxProject.nama_pekerjaan} (Rp ${(spkAndValueMetrics.maxProject.nilai_project_deal || spkAndValueMetrics.maxProject.nilai_kontrak)?.toLocaleString('id-ID')})`, projects: [spkAndValueMetrics.maxProject] })}
           >
             <span className="stat-label">Nilai Project Tertinggi</span>
             <span className="stat-value" style={{ color: '#10b981' }}>
-              {spkAndValueMetrics.maxProject ? formatCurrencySmart(spkAndValueMetrics.maxProject.nilai_kontrak) : 'Rp 0'}
+              {spkAndValueMetrics.maxProject ? formatCurrencySmart(spkAndValueMetrics.maxProject.nilai_project_deal || spkAndValueMetrics.maxProject.nilai_kontrak) : 'Rp 0'}
             </span>
             <span className="stat-sub">
               {spkAndValueMetrics.maxProject ? spkAndValueMetrics.maxProject.nama_pekerjaan : 'Tidak ada data'}
@@ -1319,7 +1319,7 @@ export default function Dashboard() {
                           <td style={{ fontWeight: 600 }}><ClickableText text={p.nama_pekerjaan} /></td>
                           <td><ClickableText text={p.pemberi_kerja || '-'} /></td>
                           <td style={{ color: '#34d399', fontWeight: 700 }}>
-                            Rp {(p.nilai_kontrak || 0).toLocaleString('id-ID')}
+                            Rp {(p.nilai_project_deal || p.nilai_kontrak || 0).toLocaleString('id-ID')}
                           </td>
                           <td>{p.tanggal_spk_berakhir || '-'}</td>
                           <td>

@@ -236,6 +236,7 @@ function UstekContent() {
             (p.tahapan === 'Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek' || p.jenis_mekanisme === 'PL')
           );
           setProjects(ustekProjects);
+          setSelectedProject((prev: any) => (prev ? data.find((d: any) => d.id === prev.id) || prev : prev));
         }
         setLoading(false);
       });

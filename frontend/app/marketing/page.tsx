@@ -103,7 +103,10 @@ function MarketingContent() {
     fetchWithAuth('/projects')
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setProjects(data);
+        if (Array.isArray(data)) {
+          setProjects(data);
+          setSelectedProject((prev: any) => (prev ? data.find((d: any) => d.id === prev.id) || prev : prev));
+        }
       });
   };
 

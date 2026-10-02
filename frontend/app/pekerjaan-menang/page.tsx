@@ -49,6 +49,7 @@ function PekerjaanMenangContent() {
             (p) => p.status_project === 'Menang' || p.jenis_mekanisme === 'PL'
           );
           setProjects(wonProjects);
+          setSelectedProject((prev: any) => (prev ? data.find((d: any) => d.id === prev.id) || prev : prev));
         }
         setLoading(false);
       })

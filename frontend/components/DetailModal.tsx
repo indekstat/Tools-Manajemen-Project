@@ -557,7 +557,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
               </div>
             </form>
 
-            {project.bidding_stages && project.bidding_stages.length > 0 && (
+            {project.bidding_stages && project.bidding_stages.length > 0 && project.status_project !== 'Menang' && project.jenis_mekanisme !== 'PL' && (
               <div style={{ marginBottom: '1.5rem' }}>
                 <h4 className="detail-section-title">Record Tahapan Bidding ({project.bidding_stages.length} Tahapan)</h4>
                 <div className="table-container" style={{ marginBottom: '1rem' }}>

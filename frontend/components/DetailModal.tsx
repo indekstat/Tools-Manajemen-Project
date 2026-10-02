@@ -38,6 +38,16 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
   // User Role State & Confirmation Modal State
   const [userRole, setUserRole] = useState<string>('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'stage' | 'bidding' | 'billing'; id: number; label: string } | null>(null);
+
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    const { kind, id } = deleteTarget;
+    setDeleteTarget(null);
+    if (kind === 'stage') await handleDeleteStage(id);
+    else if (kind === 'bidding') await handleDeleteBiddingStageInModal(id);
+    else await handleDeleteBilling(id);
+  };
   const [showConfirmAdminModal, setShowConfirmAdminModal] = useState(false);
 
   React.useEffect(() => {
@@ -611,7 +621,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                             <button
                               className="btn-logout"
                               style={{ padding: '0.2rem 0.5rem', width: 'auto', display: 'inline-flex', alignItems: 'center' }}
-                              onClick={() => handleDeleteBiddingStageInModal(bst.id)}
+                              onClick={() => setDeleteTarget({ kind: 'bidding', id: bst.id, label: `tahapan bidding "${bst.nama_tahapan}"` })}
                               title="Hapus Tahapan"
                             >
                               <IconTrash size={14} />
@@ -671,7 +681,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                           <button
                             className="btn-logout"
                             style={{ padding: '0.2rem 0.5rem', width: 'auto', display: 'inline-flex', alignItems: 'center' }}
-                            onClick={() => handleDeleteStage(st.id)}
+                            onClick={() => setDeleteTarget({ kind: 'stage', id: st.id, label: `tahapan "${st.nama_tahapan}"` })}
                             title="Hapus Tahapan"
                           >
                             <IconTrash size={14} />
@@ -810,7 +820,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                             <button
                               className="btn-logout"
                               style={{ padding: '0.2rem 0.5rem', width: 'auto', display: 'inline-flex', alignItems: 'center' }}
-                              onClick={() => handleDeleteBilling(b.id)}
+                              onClick={() => setDeleteTarget({ kind: 'billing', id: b.id, label: 'termin penagihan ini' })}
                               title="Hapus Termin"
                             >
                               <IconTrash size={14} />
@@ -832,6 +842,28 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
           </button>
         </div>
       </div>
+
+      {/* CONFIRMATION POPUP UNTUK HAPUS */}
+      {deleteTarget && (
+        <div className="modal-overlay" style={{ zIndex: 10001 }} onClick={() => setDeleteTarget(null)}>
+          <div
+            style={{ background: '#ffffff', borderRadius: '16px', maxWidth: '420px', width: '100%', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', textAlign: 'center', animation: 'modalSlide 0.2s ease' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <IconTrash size={26} color="#dc2626" />
+            </div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-main)' }}>Konfirmasi Hapus</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Apakah Anda yakin ingin menghapus <strong>{deleteTarget.label}</strong>? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button className="btn-primary btn-secondary" onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '0.65rem' }}>Batal</button>
+              <button className="btn-primary" onClick={executeDelete} style={{ flex: 1, padding: '0.65rem', background: '#dc2626' }}>Ya, Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CONFIRMATION POPUP MODAL UNTUK STATUS SUBSTANSI */}
       {showConfirmModal && (

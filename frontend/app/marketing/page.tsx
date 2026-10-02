@@ -69,6 +69,7 @@ function MarketingContent() {
   };
 
   const handleDeleteBiddingStage = async (stageId: number) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus tahapan ini?')) return;
     await fetchWithAuth(`/bidding-stages/${stageId}`, {
       method: 'DELETE',
     });

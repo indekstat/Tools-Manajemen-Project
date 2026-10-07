@@ -118,6 +118,11 @@ class Billing(Base):
     tanggal_penagihan = Column(Date, nullable=True)
     status = Column(String, default="Belum ditagih") # Belum ditagih, Sudah ditagih, Sudah dibayarkan
     catatan = Column(String, nullable=True)
+    link_bast = Column(String, nullable=True)
+    link_dokumen_penagihan = Column(String, nullable=True)
+    tanggal_uang_masuk = Column(Date, nullable=True)
+    nominal_yayasan = Column(Float, default=0.0)
+    nominal_pt = Column(Float, default=0.0)
 
     project = relationship("Project", back_populates="billings")
 

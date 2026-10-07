@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchWithAuth, formatCurrencySmart, isAdministrasiSelesai, isProjectSelesaiAkhir } from '../lib/api';
+import { fetchWithAuth, hasDokumenLengkap, formatCurrencySmart, isAdministrasiSelesai, isProjectSelesaiAkhir } from '../lib/api';
 import DetailModal from '../components/DetailModal';
 import CalendarWidget from '../components/CalendarWidget';
 import ClickableText from '../components/ClickableText';
@@ -107,8 +107,8 @@ export default function Dashboard() {
 
     // 2. By Administrasi
     const adminDoneList = wonProjects.filter((p) => isAdministrasiSelesai(p));
-    const adminNoDocsList = wonProjects.filter((p) => !isAdministrasiSelesai(p) && !(p.link_spk && p.link_bast && p.link_referensi));
-    const adminPendingPaidList = wonProjects.filter((p) => !isAdministrasiSelesai(p) && (p.link_spk && p.link_bast && p.link_referensi));
+    const adminNoDocsList = wonProjects.filter((p) => !isAdministrasiSelesai(p) && !hasDokumenLengkap(p));
+    const adminPendingPaidList = wonProjects.filter((p) => !isAdministrasiSelesai(p) && hasDokumenLengkap(p));
     const adminDoneCount = adminDoneList.length;
     const adminNoDocsCount = adminNoDocsList.length;
     const adminPendingPaidCount = adminPendingPaidList.length;

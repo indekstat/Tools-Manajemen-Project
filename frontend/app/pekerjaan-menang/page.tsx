@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { fetchWithAuth, formatCurrencySmart, isAdministrasiSelesai, isProjectSelesaiAkhir } from '../../lib/api';
 import DetailModal from '../../components/DetailModal';
+import CalendarWidget from '../../components/CalendarWidget';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
 import { IconTrophy, IconGlobe, IconGov, IconPol, IconCheck, IconClock, IconEye, IconUstek, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser } from '../../components/Icons';
@@ -104,6 +105,35 @@ function PekerjaanMenangContent() {
     return { label: `Aman (${diffDays}d)`, color: 'badge-win' };
   };
 
+  // Kalender tahapan project (tanggal & deadline tiap tahapan), bisa difilter
+  const [calSearch, setCalSearch] = useState('');
+  const [calDivisi, setCalDivisi] = useState('Semua');
+  const [calStatus, setCalStatus] = useState('Semua');
+  const [calTipe, setCalTipe] = useState('Semua');
+  const [calJenisTanggal, setCalJenisTanggal] = useState('Semua');
+
+  const stageCalendarEvents = useMemo(() => {
+    const q = calSearch.trim().toLowerCase();
+    const evs: any[] = [];
+    projects.forEach((p) => {
+      if (calDivisi !== 'Semua' && (p.divisi_substansi || p.kategori_project) !== calDivisi) return;
+      if (q && !String(p.nama_pekerjaan || '').toLowerCase().includes(q)) return;
+      (p.stages || []).forEach((st: any) => {
+        if (calStatus !== 'Semua' && st.status !== calStatus) return;
+        const tipe = st.is_meeting ? (st.tipe_meeting === 'Offline' ? 'Meeting Offline' : 'Meeting Online') : 'Non-Meeting';
+        if (calTipe !== 'Semua' && tipe !== calTipe) return;
+        const base = { project: p, title: p.nama_pekerjaan };
+        if (st.tanggal && (calJenisTanggal === 'Semua' || calJenisTanggal === 'Tanggal')) {
+          evs.push({ ...base, id: st.id * 10 + 1, dateStr: st.tanggal, type: 'ustek' as const, stageOrPic: `${st.nama_tahapan} · ${tipe} · ${st.status}` });
+        }
+        if (st.deadline && (calJenisTanggal === 'Semua' || calJenisTanggal === 'Deadline')) {
+          evs.push({ ...base, id: st.id * 10 + 2, dateStr: st.deadline, type: 'bidding' as const, stageOrPic: `Deadline: ${st.nama_tahapan} · ${st.status}` });
+        }
+      });
+    });
+    return evs;
+  }, [projects, calSearch, calDivisi, calStatus, calTipe, calJenisTanggal]);
+
   const filteredProjects = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return projects.filter((p) => {
@@ -188,6 +218,38 @@ function PekerjaanMenangContent() {
               <span className="stat-value" style={{ color: '#8b5cf6' }}>{totalPolCount} Project</span>
               <span className="stat-sub">Proyek Politik / Lembaga</span>
             </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary-color)', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <IconUstek size={18} color="var(--primary-color)" /> KALENDER TAHAPAN PROJECT
+            </div>
+            <div className="glass-card" style={{ padding: '0.85rem 1rem', marginBottom: '0.85rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+              <input
+                className="input-field"
+                placeholder="Cari nama pekerjaan..."
+                style={{ margin: 0, width: '220px' }}
+                value={calSearch}
+                onChange={(e) => setCalSearch(e.target.value)}
+              />
+              {([
+                [calDivisi, setCalDivisi, 'Divisi', ['Gov', 'Pol']],
+                [calStatus, setCalStatus, 'Status', ['Ongoing', 'Selesai', 'Pending']],
+                [calTipe, setCalTipe, 'Tipe', ['Meeting Online', 'Meeting Offline', 'Non-Meeting']],
+                [calJenisTanggal, setCalJenisTanggal, 'Tanggal', ['Tanggal', 'Deadline']],
+              ] as [string, (v: string) => void, string, string[]][]).map(([val, setVal, label, opts]) => (
+                <select key={label} className="input-field" style={{ margin: 0, width: '170px' }} value={val} onChange={(e) => setVal(e.target.value)}>
+                  <option value="Semua">Semua {label}</option>
+                  {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ))}
+            </div>
+            <CalendarWidget
+              title="Jadwal Tahapan Project"
+              type="all"
+              events={stageCalendarEvents}
+              onSelectProject={(p) => setSelectedProject(p)}
+            />
           </div>
         </div>
       ) : (

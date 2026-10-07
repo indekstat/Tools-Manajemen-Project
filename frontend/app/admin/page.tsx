@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState, useMemo, Suspense } from 'react';
+import React, { useEffect, useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { fetchWithAuth, isProjectSelesaiAkhir, isAdministrasiSelesai, formatCurrencySmart } from '../../lib/api';
+import { fetchWithAuth, hasDokumenLengkap, isProjectSelesaiAkhir, isAdministrasiSelesai, formatCurrencySmart } from '../../lib/api';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
@@ -27,6 +27,29 @@ function FinanceContent() {
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [modalInitialTab, setModalInitialTab] = useState<'info' | 'stages' | 'billings'>('info');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const [editField, setEditField] = useState<{ project: any; field: string; label: string; kind: 'currency' | 'url'; value: string; billing?: any } | null>(null);
+
+  const openEdit = (project: any, field: string, label: string, kind: 'currency' | 'url', billing?: any) => {
+    const source = billing || project;
+    const current = source[field] ?? (field === 'nilai_project_deal' ? project.nilai_kontrak : '');
+    setEditField({ project, field, label, kind, value: current ? String(current) : '', billing });
+  };
+
+  const saveEdit = async () => {
+    if (!editField) return;
+    const { project, field, kind, value, billing } = editField;
+    setEditField(null);
+    const val = kind === 'currency' ? parseFloat(value) || 0 : value.trim() || null;
+    if (billing) {
+      setProjects((prev) => prev.map((p) => p.id === project.id
+        ? { ...p, billings: p.billings.map((b: any) => (b.id === billing.id ? { ...b, [field]: val } : b)) }
+        : p));
+      await fetchWithAuth(`/billings/${billing.id}`, { method: 'PUT', body: JSON.stringify({ [field]: val }) });
+      return;
+    }
+    await updateLink(project.id, field, val ?? '');
+  };
 
   const toggleGroupCollapse = (key: string) => {
     setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -78,8 +101,7 @@ function FinanceContent() {
     const isAdminDone = isAdministrasiSelesai(p);
     if (isAdminDone) return 'Selesai Administrasi';
     
-    const hasAllDocs = Boolean(p.link_spk && p.link_bast && p.link_referensi);
-    if (!hasAllDocs) return 'Belum Dokumen Lengkap (SPK/BAST/Ref)';
+    if (!hasDokumenLengkap(p)) return 'Belum Dokumen Lengkap (SPK/BAST/Ref)';
     
     return 'Termin Belum Lunas';
   };
@@ -124,7 +146,7 @@ function FinanceContent() {
       return acc + paid;
     }, 0);
     const outstandingValue = Math.max(0, totalWonValue - totalPaidValue);
-    const completeDocsCount = projects.filter((p) => p.link_spk && p.link_bast && p.link_referensi).length;
+    const completeDocsCount = projects.filter((p) => hasDokumenLengkap(p)).length;
     const completeAdminCount = projects.filter((p) => isAdministrasiSelesai(p)).length;
 
     return {
@@ -300,8 +322,15 @@ function FinanceContent() {
                               <th>PIC Finance</th>
                               <th>Periode SPK</th>
                               <th>Dokumen SPK</th>
-                              <th>Dokumen BAST</th>
+                              {Array.from({ length: Math.max(1, ...groupedByAdminStatus[groupTitle].map((p) => (p.billings || []).length)) }).map((_, i) => (
+                                <React.Fragment key={i}>
+                                  <th>BAST Termin {i + 1}</th>
+                                  <th>Dok. Penagihan Termin {i + 1}</th>
+                                </React.Fragment>
+                              ))}
                               <th>Dokumen Referensi</th>
+                              <th>Pemasukan Yayasan / PT</th>
+                              <th>Tgl Uang Masuk</th>
                               <th>Status Admin</th>
                               <th style={{ textAlign: 'right', minWidth: '220px' }}>Detail & Termin</th>
                             </tr>
@@ -309,7 +338,7 @@ function FinanceContent() {
                           <tbody>
                             {groupedByAdminStatus[groupTitle].length === 0 ? (
                               <tr>
-                                <td colSpan={12} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
+                                <td colSpan={14} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
                                   Tidak ada data di kelompok ini.
                                 </td>
                               </tr>
@@ -333,10 +362,7 @@ function FinanceContent() {
                                         <button
                                           className="btn-primary btn-sm btn-secondary"
                                           style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
-                                          onClick={() => {
-                                            const newDeal = window.prompt("Masukkan Nilai Deal (Rp) baru:", p.nilai_project_deal?.toString() || p.nilai_kontrak?.toString() || "");
-                                            if (newDeal !== null) updateLink(p.id, 'nilai_project_deal', parseFloat(newDeal) || 0);
-                                          }}
+                                          onClick={() => openEdit(p, 'nilai_project_deal', 'Nilai Project Deal', 'currency')}
                                         >
                                           ✏️ Edit Nilai Deal
                                         </button>
@@ -378,44 +404,74 @@ function FinanceContent() {
                                         <button
                                           className="btn-primary btn-sm btn-secondary"
                                           style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
-                                          onClick={() => {
-                                            const newUrl = window.prompt("Masukkan URL SPK baru:", p.link_spk || "");
-                                            if (newUrl !== null) updateLink(p.id, 'link_spk', newUrl);
-                                          }}
+                                          onClick={() => openEdit(p, 'link_spk', 'URL SPK', 'url')}
                                         >
                                           ✏️ Edit URL SPK
                                         </button>
                                       </div>
                                     </td>
-                                    <td>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                        {p.link_bast ? <ClickableText text={p.link_bast} buttonLabel="Buka BAST" /> : <span className="text-dim" style={{fontSize: '0.75rem'}}>Belum Upload</span>}
-                                        <button
-                                          className="btn-primary btn-sm btn-secondary"
-                                          style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
-                                          onClick={() => {
-                                            const newUrl = window.prompt("Masukkan URL BAST baru:", p.link_bast || "");
-                                            if (newUrl !== null) updateLink(p.id, 'link_bast', newUrl);
-                                          }}
-                                        >
-                                          ✏️ Edit URL BAST
-                                        </button>
-                                      </div>
-                                    </td>
+                                    {Array.from({ length: Math.max(1, ...groupedByAdminStatus[groupTitle].map((x) => (x.billings || []).length)) }).map((_, i) => {
+                                      const b = (p.billings || [])[i];
+                                      if (!b) {
+                                        return (
+                                          <React.Fragment key={i}>
+                                            <td><span className="text-dim" style={{ fontSize: '0.75rem' }}>{i === 0 ? 'Belum ada termin' : '-'}</span></td>
+                                            <td><span className="text-dim" style={{ fontSize: '0.75rem' }}>-</span></td>
+                                          </React.Fragment>
+                                        );
+                                      }
+                                      return (
+                                        <React.Fragment key={i}>
+                                          {([
+                                            ['link_bast', `URL BAST ${b.nama}`, 'Buka BAST'],
+                                            ['link_dokumen_penagihan', `URL Dokumen Penagihan ${b.nama}`, 'Buka Dokumen'],
+                                          ] as const).map(([field, label, btn]) => (
+                                            <td key={field}>
+                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                                {b[field] ? <ClickableText text={b[field]} buttonLabel={btn} /> : <span className="text-dim" style={{ fontSize: '0.75rem' }}>Belum Upload</span>}
+                                                <button
+                                                  className="btn-primary btn-sm btn-secondary"
+                                                  style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
+                                                  onClick={() => openEdit(p, field, label, 'url', b)}
+                                                >
+                                                  ✏️ Edit URL
+                                                </button>
+                                              </div>
+                                            </td>
+                                          ))}
+                                        </React.Fragment>
+                                      );
+                                    })}
                                     <td>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                                         {p.link_referensi ? <ClickableText text={p.link_referensi} buttonLabel="Buka Ref" /> : <span className="text-dim" style={{fontSize: '0.75rem'}}>Belum Upload</span>}
                                         <button
                                           className="btn-primary btn-sm btn-secondary"
                                           style={{ padding: '0.15rem 0.35rem', fontSize: '0.7rem' }}
-                                          onClick={() => {
-                                            const newUrl = window.prompt("Masukkan URL Ref baru:", p.link_referensi || "");
-                                            if (newUrl !== null) updateLink(p.id, 'link_referensi', newUrl);
-                                          }}
+                                          onClick={() => openEdit(p, 'link_referensi', 'URL Surat Referensi', 'url')}
                                         >
                                           ✏️ Edit URL Ref
                                         </button>
                                       </div>
+                                    </td>
+                                    <td style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                                      {(() => {
+                                        const paid = (p.billings || []).filter((b: any) => b.status === 'Sudah dibayarkan');
+                                        const yy = paid.reduce((t: number, b: any) => t + (b.nominal_yayasan || 0), 0);
+                                        const pt = paid.reduce((t: number, b: any) => t + (b.nominal_pt || 0), 0);
+                                        return (
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                                            <span style={{ color: '#7c3aed' }}>Yayasan: Rp {yy.toLocaleString('id-ID')}</span>
+                                            <span style={{ color: '#0369a1' }}>PT: Rp {pt.toLocaleString('id-ID')}</span>
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
+                                    <td style={{ fontSize: '0.8rem' }}>
+                                      {(() => {
+                                        const dates = (p.billings || []).map((b: any) => b.tanggal_uang_masuk).filter(Boolean).sort();
+                                        return dates.length ? dates[dates.length - 1] : '-';
+                                      })()}
                                     </td>
                                     <td>
                                       {isAdminDone ? (
@@ -468,6 +524,62 @@ function FinanceContent() {
             )}
           </div>
         </>
+      )}
+
+      {editField && (
+        <div className="modal-overlay" style={{ zIndex: 10001 }} onClick={() => setEditField(null)}>
+          <form
+            style={{ background: '#ffffff', borderRadius: '16px', maxWidth: '440px', width: '100%', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', animation: 'modalSlide 0.2s ease' }}
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => { e.preventDefault(); saveEdit(); }}
+          >
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.25rem', color: 'var(--text-main)' }}>Edit {editField.label}</h3>
+            <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.4 }}>{editField.project.nama_pekerjaan}</p>
+
+            {editField.kind === 'currency' ? (
+              <>
+                <label className="input-label">Nilai Deal (Rp)</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>Rp</span>
+                  <input
+                    autoFocus
+                    className="input-field"
+                    inputMode="numeric"
+                    style={{ margin: 0, width: '100%', paddingLeft: '2.5rem', fontWeight: 700, fontSize: '1.1rem', color: '#059669' }}
+                    value={editField.value ? Number(editField.value).toLocaleString('id-ID') : ''}
+                    onChange={(e) => setEditField({ ...editField, value: e.target.value.replace(/\D/g, '') })}
+                    placeholder="0"
+                  />
+                </div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                  Nilai kontrak awal: <strong>Rp {(editField.project.nilai_kontrak || 0).toLocaleString('id-ID')}</strong>
+                  {editField.value && Number(editField.value) !== (editField.project.nilai_kontrak || 0) && (
+                    <> · Selisih: <strong style={{ color: Number(editField.value) > (editField.project.nilai_kontrak || 0) ? '#059669' : '#dc2626' }}>
+                      {Number(editField.value) > (editField.project.nilai_kontrak || 0) ? '+' : '-'}Rp {Math.abs(Number(editField.value) - (editField.project.nilai_kontrak || 0)).toLocaleString('id-ID')}
+                    </strong></>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <label className="input-label">{editField.label}</label>
+                <input
+                  autoFocus
+                  className="input-field"
+                  style={{ margin: 0, width: '100%' }}
+                  placeholder="https://..."
+                  value={editField.value}
+                  onChange={(e) => setEditField({ ...editField, value: e.target.value })}
+                />
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button type="button" className="btn-primary btn-secondary" onClick={() => setEditField(null)} style={{ flex: 1, padding: '0.65rem' }}>Batal</button>
+              <button type="submit" className="btn-primary" style={{ flex: 1, padding: '0.65rem' }}>Simpan</button>
+            </div>
+          </form>
+        </div>
       )}
 
       <DetailModal 

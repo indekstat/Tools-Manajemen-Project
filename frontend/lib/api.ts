@@ -71,6 +71,14 @@ export const formatCurrencySmart = (val: number) => {
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
 
+// BAST mengikuti jumlah termin: bila sudah ada termin, tiap termin harus punya BAST
+export const hasBastLengkap = (p: any) => {
+  const bills = p?.billings || [];
+  return bills.length > 0 ? bills.every((b: any) => b.link_bast) : Boolean(p?.link_bast);
+};
+
+export const hasDokumenLengkap = (p: any) => Boolean(p?.link_spk && p?.link_referensi && hasBastLengkap(p));
+
 export const isAdministrasiSelesai = (p: any) => {
   if (!p) return false;
   if (p.status_selesai_administrasi) return true;
@@ -78,7 +86,7 @@ export const isAdministrasiSelesai = (p: any) => {
     .filter((b: any) => b.status === 'Sudah dibayarkan')
     .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
   const isPaidInFull = totalPaid >= (p.nilai_project_deal || p.nilai_kontrak || 0) && (p.nilai_project_deal || p.nilai_kontrak || 0) > 0;
-  const hasDocs = Boolean(p.link_spk && p.link_bast && p.link_referensi);
+  const hasDocs = hasDokumenLengkap(p);
   return isPaidInFull && hasDocs;
 };
 

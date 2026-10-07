@@ -22,6 +22,13 @@ def ensure_columns():
                 conn.commit()
             except Exception:
                 pass
+        for col, typ in [("link_bast", "VARCHAR"), ("link_dokumen_penagihan", "VARCHAR"), ("tanggal_uang_masuk", "DATE"),
+                         ("nominal_yayasan", "FLOAT DEFAULT 0"), ("nominal_pt", "FLOAT DEFAULT 0")]:
+            try:
+                conn.execute(text(f"ALTER TABLE billings ADD COLUMN {col} {typ}"))
+                conn.commit()
+            except Exception:
+                pass
         try:
             conn.execute(text("ALTER TABLE project_stages ADD COLUMN deadline DATE"))
             conn.commit()
@@ -733,6 +740,23 @@ def create_project_billing(project_id: int, billing: schemas.BillingBase, db: Se
     db.refresh(db_billing)
     return db_billing
 
+@app.post("/projects/{project_id}/billings/bulk", response_model=List[schemas.BillingResponse])
+def create_project_billings_bulk(project_id: int, payload: schemas.BillingBulkCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Finance"]))):
+    if payload.jumlah < 1 or payload.jumlah > 50:
+        raise HTTPException(status_code=400, detail="Jumlah termin harus 1-50")
+    existing = db.query(models.Billing).filter(models.Billing.project_id == project_id).count()
+    each = round(payload.total / payload.jumlah)
+    created = []
+    for i in range(payload.jumlah):
+        nominal = payload.total - each * (payload.jumlah - 1) if i == payload.jumlah - 1 else each
+        b = models.Billing(project_id=project_id, nama=f"Termin {existing + i + 1}", nominal=nominal, nominal_pt=nominal, nominal_yayasan=0.0)
+        db.add(b)
+        created.append(b)
+    db.commit()
+    for b in created:
+        db.refresh(b)
+    return created
+
 @app.put("/billings/{billing_id}", response_model=schemas.BillingResponse)
 def update_billing(billing_id: int, billing: schemas.BillingUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Finance", "Superadmin", "Gov", "Pol", "IR", "Systech"]))):
     db_billing = db.query(models.Billing).filter(models.Billing.id == billing_id).first()
@@ -740,7 +764,7 @@ def update_billing(billing_id: int, billing: schemas.BillingUpdate, db: Session 
         raise HTTPException(status_code=404, detail="Billing not found")
     
     for key, value in billing.model_dump(exclude_unset=True).items():
-        if value is not None or key == "tanggal_penagihan":
+        if value is not None or key in ("tanggal_penagihan", "tanggal_uang_masuk", "link_bast", "link_dokumen_penagihan", "catatan"):
             setattr(db_billing, key, value)
         
     db.commit()

@@ -131,6 +131,15 @@ class BillingBase(BaseModel):
     tanggal_penagihan: Optional[date] = None
     status: Optional[str] = "Belum ditagih"
     catatan: Optional[str] = None
+    link_bast: Optional[str] = None
+    link_dokumen_penagihan: Optional[str] = None
+    tanggal_uang_masuk: Optional[date] = None
+    nominal_yayasan: Optional[float] = 0.0
+    nominal_pt: Optional[float] = 0.0
+
+class BillingBulkCreate(BaseModel):
+    jumlah: int
+    total: float
 
 class BillingCreate(BillingBase):
     project_id: int
@@ -141,6 +150,11 @@ class BillingUpdate(BaseModel):
     tanggal_penagihan: Optional[date] = None
     status: Optional[str] = None
     catatan: Optional[str] = None
+    link_bast: Optional[str] = None
+    link_dokumen_penagihan: Optional[str] = None
+    tanggal_uang_masuk: Optional[date] = None
+    nominal_yayasan: Optional[float] = None
+    nominal_pt: Optional[float] = None
 
 class BillingResponse(BillingBase):
     id: int

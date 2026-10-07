@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { fetchWithAuth, isAdministrasiSelesai, isSubstansiSelesai, isProjectSelesaiAkhir } from '../lib/api';
+import { fetchWithAuth, hasDokumenLengkap, isAdministrasiSelesai, isSubstansiSelesai, isProjectSelesaiAkhir } from '../lib/api';
 import SearchableSelect from './SearchableSelect';
 import ClickableText from './ClickableText';
 import { IconUstek, IconCalendar, IconFinance, IconClose, IconCheck, IconClock, IconTrophy, IconLink, IconTrash, IconLock, IconAlertTriangle } from './Icons';
@@ -59,6 +59,7 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
 
   // Billing Form State
   const [billingName, setBillingName] = useState('');
+  const [bulkCount, setBulkCount] = useState('3');
   const [billingNominal, setBillingNominal] = useState('');
   const [billingDate, setBillingDate] = useState('');
   const [billingStatus, setBillingStatus] = useState('Belum ditagih');
@@ -151,8 +152,12 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
     .filter((b: any) => b.status === 'Sudah dibayarkan')
     .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
   
+  const paidBillings = (project.billings || []).filter((b: any) => b.status === 'Sudah dibayarkan');
+  const paidYayasan = paidBillings.reduce((sum: number, b: any) => sum + (b.nominal_yayasan || 0), 0);
+  const paidPt = paidBillings.reduce((sum: number, b: any) => sum + (b.nominal_pt || 0), 0);
+
   const isPaidInFull = totalPaid >= (project.nilai_project_deal || project.nilai_kontrak || 0) && (project.nilai_project_deal || project.nilai_kontrak || 0) > 0;
-  const hasAllDocs = Boolean(project.link_spk && project.link_bast && project.link_referensi);
+  const hasAllDocs = hasDokumenLengkap(project);
   const isProjectSelesai = isProjectSelesaiAkhir(project);
   const urgensi = calculateUrgensiDeadline();
 
@@ -293,49 +298,81 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
     await refresh();
   };
 
-  // Handlers for Billings
+  // Handlers for Billings (update lokal langsung, tanpa refetch seluruh project agar cepat)
+  const setLocalBillings = (fn: (list: any[]) => any[]) => {
+    setProject((prev: any) => (prev ? { ...prev, billings: fn(prev.billings || []) } : prev));
+  };
+
+  const syncParent = () => {
+    if (onRefresh) onRefresh();
+  };
+
   const handleAddBilling = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetchWithAuth(`/projects/${project.id}/billings`, {
+    const nominal = parseFloat(billingNominal) || 0;
+    const res = await fetchWithAuth(`/projects/${project.id}/billings`, {
       method: 'POST',
       body: JSON.stringify({
-        nama: billingName,
-        nominal: parseFloat(billingNominal) || 0,
+        nama: billingName.trim() || `Termin ${(project.billings?.length || 0) + 1}`,
+        nominal,
+        nominal_pt: nominal,
+        nominal_yayasan: 0,
         tanggal_penagihan: billingDate || null,
         status: billingStatus
       })
     });
-    setBillingName('');
-    setBillingNominal('');
-    setBillingDate('');
-    await refresh();
+    if (res.ok) {
+      const created = await res.json();
+      setLocalBillings((list) => [...list, created]);
+      setBillingName('');
+      setBillingNominal('');
+      setBillingDate('');
+      syncParent();
+    }
   };
 
-  const handleUpdateBillingStatus = async (billingId: number, currentStatus: string) => {
-    const nextStatus = currentStatus === 'Belum ditagih' ? 'Sudah ditagih' : currentStatus === 'Sudah ditagih' ? 'Sudah dibayarkan' : 'Belum ditagih';
-    await fetchWithAuth(`/billings/${billingId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status: nextStatus })
+  const handleBulkBilling = async () => {
+    const jumlah = parseInt(bulkCount) || 0;
+    const target = project.nilai_project_deal || project.nilai_kontrak || 0;
+    const sisa = target - (project.billings || []).reduce((t: number, b: any) => t + (b.nominal || 0), 0);
+    if (jumlah < 1 || jumlah > 50) return;
+    const res = await fetchWithAuth(`/projects/${project.id}/billings/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ jumlah, total: sisa > 0 ? sisa : target })
     });
-    await refresh();
+    if (res.ok) {
+      const created = await res.json();
+      setLocalBillings((list) => [...list, ...created]);
+      syncParent();
+    }
   };
 
-  const handleUpdateBillingField = async (billingId: number, field: string, value: any) => {
+  const handleUpdateBillingField = async (billingId: number, field: string, value: any, extra: Record<string, any> = {}) => {
+    const fields = { [field]: value, ...extra };
+    setLocalBillings((list) => list.map((b) => (b.id === billingId ? { ...b, ...fields } : b)));
     await fetchWithAuth(`/billings/${billingId}`, {
       method: 'PUT',
-      body: JSON.stringify({ [field]: value })
+      body: JSON.stringify(fields)
     });
-    await refresh();
+    syncParent();
+  };
+
+  // Pembagian pemasukan Yayasan / PT: mengubah salah satu otomatis menyesuaikan sisanya
+  const handleSplit = (b: any, side: 'yayasan' | 'pt', raw: string) => {
+    const val = Math.min(b.nominal || 0, Math.max(0, parseFloat(raw) || 0));
+    const other = (b.nominal || 0) - val;
+    handleUpdateBillingField(b.id, side === 'yayasan' ? 'nominal_yayasan' : 'nominal_pt', val, side === 'yayasan' ? { nominal_pt: other } : { nominal_yayasan: other });
   };
 
   const handleDeleteBilling = async (billingId: number) => {
+    setLocalBillings((list) => list.filter((b) => b.id !== billingId));
     await fetchWithAuth(`/billings/${billingId}`, { method: 'DELETE' });
-    await refresh();
+    syncParent();
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '850px' }}>
+      <div className="modal-content glass-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: activeTab === 'billings' ? '1200px' : '850px' }}>
         
         {/* Header */}
         <div className="modal-header">
@@ -930,6 +967,10 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                 <span>Total Terbayar: <strong>Rp {totalPaid.toLocaleString('id-ID')}</strong></span>
                 <span>Target: <strong>Rp {(project.nilai_project_deal || project.nilai_kontrak || 0).toLocaleString('id-ID')}</strong></span>
               </div>
+              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                <span style={{ color: '#7c3aed' }}>Masuk Yayasan: <strong>Rp {paidYayasan.toLocaleString('id-ID')}</strong></span>
+                <span style={{ color: '#0369a1' }}>Masuk PT: <strong>Rp {paidPt.toLocaleString('id-ID')}</strong></span>
+              </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div
                   style={{
@@ -949,10 +990,9 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                   <input
                     className="input-field"
                     style={{ margin: 0 }}
-                    placeholder="Nama Termin (e.g. Termin 1 DP 30%)"
+                    placeholder={`Nama Termin (kosong = Termin ${(project.billings?.length || 0) + 1})`}
                     value={billingName}
                     onChange={(e) => setBillingName(e.target.value)}
-                    required
                   />
                   <input
                     className="input-field"
@@ -972,6 +1012,20 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                   />
                   <button className="btn-primary btn-sm" type="submit" style={{ height: '42px' }}>+ Tambah</button>
                 </form>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Atau buat cepat:</span>
+                  <input
+                    className="input-field"
+                    type="number"
+                    min={1}
+                    max={50}
+                    style={{ margin: 0, width: '80px' }}
+                    value={bulkCount}
+                    onChange={(e) => setBulkCount(e.target.value)}
+                  />
+                  <span style={{ color: 'var(--text-muted)' }}>termin, nominal dibagi rata dari sisa nilai deal</span>
+                  <button className="btn-primary btn-sm btn-secondary" type="button" onClick={handleBulkBilling}>Buat Termin Otomatis</button>
+                </div>
               </>
             ) : (
               <div style={{ padding: '0.85rem 1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#64748b', fontSize: '0.825rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -989,13 +1043,18 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                     <th>Nominal</th>
                     <th>Tgl Penagihan</th>
                     <th>Status Penagihan</th>
+                    <th>Tgl Uang Masuk</th>
+                    <th>Yayasan (Rp)</th>
+                    <th>PT (Rp)</th>
+                    <th>BAST</th>
+                    <th>Dok. Penagihan</th>
                     {canManageFinance && <th style={{ textAlign: 'right' }}>Aksi</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {!project.billings || project.billings.length === 0 ? (
                     <tr>
-                      <td colSpan={canManageFinance ? 5 : 4} style={{ textAlign: 'center', opacity: 0.5, padding: '1.5rem' }}>
+                      <td colSpan={canManageFinance ? 10 : 9} style={{ textAlign: 'center', opacity: 0.5, padding: '1.5rem' }}>
                         Belum ada termin penagihan tercatat.
                       </td>
                     </tr>
@@ -1043,6 +1102,60 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                             </span>
                           )}
                         </td>
+                        <td>
+                          {canManageFinance ? (
+                            <input
+                              className="input-field"
+                              type="date"
+                              style={{ margin: 0, padding: '0.25rem 0.4rem', width: '135px', fontSize: '0.8rem' }}
+                              defaultValue={b.tanggal_uang_masuk || ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v || v.slice(0, 4) >= '2000') handleUpdateBillingField(b.id, 'tanggal_uang_masuk', v || null);
+                              }}
+                            />
+                          ) : (
+                            <span>{b.tanggal_uang_masuk || '-'}</span>
+                          )}
+                        </td>
+                        {(['yayasan', 'pt'] as const).map((side) => {
+                          const val = side === 'yayasan' ? b.nominal_yayasan : b.nominal_pt;
+                          return (
+                            <td key={side}>
+                              {canManageFinance ? (
+                                <input
+                                  className="input-field"
+                                  type="number"
+                                  style={{ margin: 0, padding: '0.25rem 0.4rem', width: '120px', fontSize: '0.8rem' }}
+                                  key={`${b.id}-${side}-${val}`}
+                                  defaultValue={val || 0}
+                                  onBlur={(e) => {
+                                    if ((parseFloat(e.target.value) || 0) !== (val || 0)) handleSplit(b, side, e.target.value);
+                                  }}
+                                />
+                              ) : (
+                                <span>Rp {(val || 0).toLocaleString('id-ID')}</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                        {(['link_bast', 'link_dokumen_penagihan'] as const).map((field) => (
+                          <td key={field}>
+                            {b[field] && <ClickableText text={b[field]} buttonLabel={field === 'link_bast' ? 'Buka BAST' : 'Buka Dokumen'} />}
+                            {canManageFinance && (
+                              <input
+                                className="input-field"
+                                placeholder="URL..."
+                                style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.75rem', width: '140px' }}
+                                defaultValue={b[field] || ''}
+                                onBlur={(e) => {
+                                  if ((e.target.value || null) !== (b[field] || null)) handleUpdateBillingField(b.id, field, e.target.value.trim() || null);
+                                }}
+                              />
+                            )}
+                            {!canManageFinance && !b[field] && <span className="text-dim">-</span>}
+                          </td>
+                        ))}
                         {canManageFinance && (
                           <td style={{ textAlign: 'right' }}>
                             <button

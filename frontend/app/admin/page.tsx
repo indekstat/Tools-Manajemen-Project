@@ -121,7 +121,7 @@ function FinanceContent() {
         (p.pemberi_kerja || '').toLowerCase().includes(q) ||
         (p.satuan_kerja || '').toLowerCase().includes(q) ||
         (p.lokasi || '').toLowerCase().includes(q) ||
-        (p.pic_admin || '').toLowerCase().includes(q)
+        (p.admin || '').toLowerCase().includes(q)
       );
       return matchStatus && matchQuery;
     });
@@ -372,8 +372,8 @@ function FinanceContent() {
                                       <SearchableSelect
                                         compact
                                         style={{ margin: 0, width: '120px' }}
-                                        value={p.pic_admin || ''}
-                                        onChange={(val) => updateLink(p.id, 'pic_admin', val)}
+                                        value={p.admin || ''}
+                                        onChange={(val) => updateLink(p.id, 'admin', val)}
                                         options={userOptions}
                                         placeholder="Pilih PIC"
                                       />
@@ -385,8 +385,8 @@ function FinanceContent() {
                                           type="date"
                                           title="Tanggal SPK Mulai"
                                           style={{ margin: 0, padding: '0.2rem 0.35rem', fontSize: '0.75rem' }}
-                                          defaultValue={p.tanggal_spk_mulai || ''}
-                                          onBlur={(e) => updateLink(p.id, 'tanggal_spk_mulai', e.target.value)}
+                                          defaultValue={p.tanggal_mulai_spk || ''}
+                                          onBlur={(e) => updateLink(p.id, 'tanggal_mulai_spk', e.target.value)}
                                         />
                                         <input
                                           className="input-field"

@@ -280,7 +280,7 @@ export default function Dashboard() {
       const monthNum = idx + 1;
 
       const startingProjects = wonProjects.filter((p) => {
-        const dStr = p.tanggal_mulai_spk || p.tanggal_spk_mulai;
+        const dStr = p.tanggal_mulai_spk;
         if (!dStr) return false;
         const d = new Date(dStr);
         return d.getMonth() + 1 === monthNum && d.getFullYear() === currentYear;

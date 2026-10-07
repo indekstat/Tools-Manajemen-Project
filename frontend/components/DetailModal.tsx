@@ -12,7 +12,30 @@ interface ProjectDetailModalProps {
   initialTab?: 'info' | 'stages' | 'billings';
 }
 
-export default function DetailModal({ project, onClose, onRefresh, initialTab }: ProjectDetailModalProps) {
+export default function DetailModal({ project: projectProp, onClose, onRefresh, initialTab }: ProjectDetailModalProps) {
+  const [project, setProject] = useState<any | null>(projectProp);
+  React.useEffect(() => {
+    setProject(projectProp);
+  }, [projectProp]);
+
+  // Ambil data terbaru dari server agar perubahan langsung tampil tanpa refresh halaman
+  const refresh = async () => {
+    const id = projectProp?.id;
+    if (id) {
+      try {
+        const res = await fetchWithAuth('/projects');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const fresh = data.find((d: any) => d.id === id);
+          if (fresh) setProject(fresh);
+        }
+      } catch (e) {
+        console.error('Failed to refresh project', e);
+      }
+    }
+    if (onRefresh) onRefresh();
+  };
+
   const [activeTab, setActiveTab] = useState<'info' | 'stages' | 'billings'>(initialTab || 'info');
   
   React.useEffect(() => {
@@ -26,6 +49,11 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
   const [stageDate, setStageDate] = useState('');
   const [stageStatus, setStageStatus] = useState('Ongoing');
   const [stageKet, setStageKet] = useState('');
+  const [stageDeadline, setStageDeadline] = useState('');
+  const [editStage, setEditStage] = useState<any | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [form, setForm] = useState<Record<string, any>>({});
+  const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [isMeeting, setIsMeeting] = useState(false);
   const [tipeMeeting, setTipeMeeting] = useState('Online');
 
@@ -99,6 +127,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
   };
 
   const canManageFinance = userRole === 'Finance' || userRole === 'Superadmin';
+  const canEditProject = !!userRole && userRole !== 'Viewer';
   const canManageSubstansi = ['Gov', 'Pol', 'Systech', 'Superadmin'].includes(userRole);
 
   if (!project) return null;
@@ -139,7 +168,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
         status_selesai_substansi: !project.status_selesai_substansi
       })
     });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   
@@ -149,7 +178,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
         method: 'PUT',
         body: JSON.stringify({ [field]: value })
       });
-      if (onRefresh) onRefresh();
+      await refresh();
     } catch (e) {
       console.error('Failed to update project field', e);
     }
@@ -163,7 +192,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
         status_selesai_administrasi: !isAdministrasiSelesai(project)
       })
     });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   // Handlers for Tahapan
@@ -174,8 +203,9 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
       body: JSON.stringify({
         nama_tahapan: stageName,
         tanggal: stageDate || null,
+        deadline: stageDeadline || null,
         status: stageStatus,
-        keterangan: stageKet,
+        keterangan: stageKet || null,
         is_meeting: isMeeting,
         tipe_meeting: isMeeting ? tipeMeeting : null
       })
@@ -183,13 +213,71 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
     setStageName('');
     setStageDate('');
     setStageKet('');
+    setStageDeadline('');
     setIsMeeting(false);
-    if (onRefresh) onRefresh();
+    await refresh();
+  };
+
+  const handleSaveEditStage = async () => {
+    if (!editStage || !editStage.nama_tahapan?.trim()) return;
+    await fetchWithAuth(`/stages/${editStage.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        nama_tahapan: editStage.nama_tahapan,
+        tanggal: editStage.tanggal || null,
+        deadline: editStage.deadline || null,
+        status: editStage.status,
+        keterangan: editStage.keterangan || null,
+        is_meeting: !!editStage.is_meeting,
+        tipe_meeting: editStage.is_meeting ? editStage.tipe_meeting || 'Online' : null,
+      }),
+    });
+    setEditStage(null);
+    await refresh();
+  };
+
+  const EDIT_FIELDS = [
+    'nama_pekerjaan', 'nilai_kontrak', 'status_project', 'jenis_mekanisme', 'divisi_substansi', 'lokasi',
+    'metode_pekerjaan', 'jenis_pekerjaan', 'pemberi_kerja', 'satuan_kerja', 'deadline_pengumuman', 'peringkat',
+    'pic', 'pic_ustek', 'tim_ustek', 'tanggal_mulai_spk', 'tanggal_spk_berakhir', 'url_ustek', 'url_rab', 'url_ta',
+    'link_spk', 'link_bast', 'link_referensi', 'keterangan_tender',
+  ];
+
+  const startEdit = () => {
+    const f: Record<string, any> = {};
+    EDIT_FIELDS.forEach((k) => {
+      f[k] = project[k] ?? '';
+    });
+    setForm(f);
+    setEditMode(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (!String(form.nama_pekerjaan || '').trim()) return;
+    const payload: Record<string, any> = {};
+    EDIT_FIELDS.forEach((k) => {
+      const v = form[k];
+      if (k === 'nilai_kontrak') payload[k] = parseFloat(v) || 0;
+      else if (k === 'nama_pekerjaan') payload[k] = String(v).trim();
+      else payload[k] = v === '' ? null : v;
+    });
+    await fetchWithAuth(`/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    setEditMode(false);
+    await refresh();
+  };
+
+  const handleDeleteProject = async () => {
+    setShowDeleteProject(false);
+    const res = await fetchWithAuth(`/projects/${project.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      if (onRefresh) onRefresh();
+      onClose();
+    }
   };
 
   const handleDeleteStage = async (stageId: number) => {
     await fetchWithAuth(`/stages/${stageId}`, { method: 'DELETE' });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   const handleUpdateBiddingStageInModal = async (stageId: number, fields: Record<string, any>) => {
@@ -197,12 +285,12 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
       method: 'PUT',
       body: JSON.stringify(fields),
     });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   const handleDeleteBiddingStageInModal = async (stageId: number) => {
     await fetchWithAuth(`/bidding-stages/${stageId}`, { method: 'DELETE' });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   // Handlers for Billings
@@ -220,7 +308,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
     setBillingName('');
     setBillingNominal('');
     setBillingDate('');
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   const handleUpdateBillingStatus = async (billingId: number, currentStatus: string) => {
@@ -229,7 +317,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
       method: 'PUT',
       body: JSON.stringify({ status: nextStatus })
     });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   const handleUpdateBillingField = async (billingId: number, field: string, value: any) => {
@@ -237,12 +325,12 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
       method: 'PUT',
       body: JSON.stringify({ [field]: value })
     });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   const handleDeleteBilling = async (billingId: number) => {
     await fetchWithAuth(`/billings/${billingId}`, { method: 'DELETE' });
-    if (onRefresh) onRefresh();
+    await refresh();
   };
 
   return (
@@ -317,6 +405,81 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
         {/* TAB 1: INFORMATION */}
         {activeTab === 'info' && (
           <div className="modal-body">
+            {canEditProject && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                {editMode ? (
+                  <>
+                    <button className="btn-primary btn-sm btn-secondary" onClick={() => setEditMode(false)}>Batal</button>
+                    <button className="btn-primary btn-sm" onClick={handleSaveProject}>Simpan Perubahan</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn-primary btn-sm btn-secondary" onClick={startEdit}>Edit Data</button>
+                    <button className="btn-primary btn-sm" style={{ background: '#dc2626' }} onClick={() => setShowDeleteProject(true)}>Hapus Pekerjaan</button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {editMode ? (
+              <div className="detail-grid">
+                {([
+                  ['nama_pekerjaan', 'Nama Pekerjaan', 'text'],
+                  ['nilai_kontrak', 'Nilai Pekerjaan (Kontrak Awal)', 'number'],
+                  ['status_project', 'Status Bidding', ['Ongoing', 'Menang', 'Kalah', 'Batal', 'Tidak Memenuhi Ambang Batas']],
+                  ['jenis_mekanisme', 'Mekanisme', ['Bidding', 'PL']],
+                  ['divisi_substansi', 'Divisi Substansi', ['Gov', 'Pol']],
+                  ['lokasi', 'Lokasi', ['Pusat', 'Cabang Jatim', 'Cabang Jateng']],
+                  ['metode_pekerjaan', 'Metode Pekerjaan', 'text'],
+                  ['jenis_pekerjaan', 'Jenis Pekerjaan', 'text'],
+                  ['pemberi_kerja', 'Pemberi Kerja', 'text'],
+                  ['satuan_kerja', 'Satuan Kerja', 'text'],
+                  ['deadline_pengumuman', 'Deadline / Pengumuman', 'date'],
+                  ['peringkat', 'Peringkat', 'text'],
+                  ['pic', 'PIC Project', 'text'],
+                  ['pic_ustek', 'PIC Ustek', 'text'],
+                  ['tim_ustek', 'Tim Ustek', 'text'],
+                  ['tanggal_mulai_spk', 'Tanggal Mulai SPK', 'date'],
+                  ['tanggal_spk_berakhir', 'Tanggal SPK Berakhir', 'date'],
+                  ['url_ustek', 'Link Ustek', 'text'],
+                  ['url_rab', 'Link RAB', 'text'],
+                  ['url_ta', 'Link TA', 'text'],
+                  ['link_spk', 'Link SPK', 'text'],
+                  ['link_bast', 'Link BAST', 'text'],
+                  ['link_referensi', 'Link Surat Referensi', 'text'],
+                ] as [string, string, string | string[]][]).map(([key, label, kind]) => (
+                  <div className="detail-item" key={key}>
+                    <span className="detail-label">{label}</span>
+                    {Array.isArray(kind) ? (
+                      <SearchableSelect
+                        style={{ margin: 0 }}
+                        value={form[key] || ''}
+                        onChange={(val) => setForm((f) => ({ ...f, [key]: val }))}
+                        options={kind}
+                      />
+                    ) : (
+                      <input
+                        className="input-field"
+                        type={kind}
+                        style={{ margin: 0, width: '100%' }}
+                        value={form[key] ?? ''}
+                        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                      />
+                    )}
+                  </div>
+                ))}
+                <div className="detail-item" style={{ gridColumn: '1 / -1' }}>
+                  <span className="detail-label">Keterangan</span>
+                  <textarea
+                    className="input-field"
+                    rows={3}
+                    style={{ margin: 0, width: '100%' }}
+                    value={form.keterangan_tender ?? ''}
+                    onChange={(e) => setForm((f) => ({ ...f, keterangan_tender: e.target.value }))}
+                  />
+                </div>
+              </div>
+            ) : (<>
             <div className="detail-grid">
               <div className="detail-item">
                 <span className="detail-label">Metode Pekerjaan</span>
@@ -507,6 +670,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                 </div>
               </div>
             )}
+            </>)}
           </div>
         )}
 
@@ -515,7 +679,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
           <div className="modal-body">
             <h4 className="detail-section-title">Tambah Tahapan Baru</h4>
             <form onSubmit={handleAddStage} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'end' }}>
                 <input
                   className="input-field"
                   style={{ margin: 0 }}
@@ -530,6 +694,15 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                   style={{ margin: 0 }}
                   value={stageDate}
                   onChange={(e) => setStageDate(e.target.value)}
+                  title="Tanggal"
+                />
+                <input
+                  className="input-field"
+                  type="date"
+                  style={{ margin: 0 }}
+                  value={stageDeadline}
+                  onChange={(e) => setStageDeadline(e.target.value)}
+                  title="Deadline"
                 />
                 <SearchableSelect
                   style={{ margin: 0 }}
@@ -539,6 +712,14 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                 />
                 <button className="btn-primary btn-sm" type="submit" style={{ height: '42px' }}>+ Tambah</button>
               </div>
+
+              <input
+                className="input-field"
+                style={{ margin: 0 }}
+                placeholder="Keterangan (opsional)"
+                value={stageKet}
+                onChange={(e) => setStageKet(e.target.value)}
+              />
 
               {/* Requirement #6: Meeting vs Non-Meeting & Online/Offline */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', paddingTop: '0.25rem' }}>
@@ -643,6 +824,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                     <th style={{ width: '40px' }}>No.</th>
                     <th>Tahapan</th>
                     <th>Tanggal</th>
+                    <th>Deadline</th>
                     <th>Tipe Rapat / Tahapan</th>
                     <th>Status</th>
                     <th>Keterangan</th>
@@ -652,16 +834,50 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                 <tbody>
                   {!project.stages || project.stages.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', opacity: 0.5, padding: '1.5rem' }}>
+                      <td colSpan={8} style={{ textAlign: 'center', opacity: 0.5, padding: '1.5rem' }}>
                         Belum ada tahapan tercatat.
                       </td>
                     </tr>
                   ) : (
                     project.stages.map((st: any, idx: number) => (
+                      editStage && editStage.id === st.id ? (
+                        <tr key={st.id}>
+                          <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>{idx + 1}.</td>
+                          <td>
+                            <input className="input-field" style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.8rem' }} value={editStage.nama_tahapan || ''} onChange={(e) => setEditStage({ ...editStage, nama_tahapan: e.target.value })} />
+                          </td>
+                          <td>
+                            <input className="input-field" type="date" style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.8rem', width: '135px' }} value={editStage.tanggal || ''} onChange={(e) => setEditStage({ ...editStage, tanggal: e.target.value })} />
+                          </td>
+                          <td>
+                            <input className="input-field" type="date" style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.8rem', width: '135px' }} value={editStage.deadline || ''} onChange={(e) => setEditStage({ ...editStage, deadline: e.target.value })} />
+                          </td>
+                          <td>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem' }}>
+                              <input type="checkbox" checked={!!editStage.is_meeting} onChange={(e) => setEditStage({ ...editStage, is_meeting: e.target.checked, tipe_meeting: e.target.checked ? editStage.tipe_meeting || 'Online' : null })} />
+                              Meeting
+                            </label>
+                            {editStage.is_meeting && (
+                              <SearchableSelect compact style={{ margin: '0.25rem 0 0', width: '110px' }} value={editStage.tipe_meeting || 'Online'} onChange={(val) => setEditStage({ ...editStage, tipe_meeting: val })} options={['Online', 'Offline']} />
+                            )}
+                          </td>
+                          <td>
+                            <SearchableSelect compact style={{ margin: 0, width: '110px' }} value={editStage.status || 'Ongoing'} onChange={(val) => setEditStage({ ...editStage, status: val })} options={['Ongoing', 'Selesai', 'Pending']} />
+                          </td>
+                          <td>
+                            <input className="input-field" placeholder="Keterangan..." style={{ margin: 0, padding: '0.25rem 0.4rem', fontSize: '0.8rem', width: '100%' }} value={editStage.keterangan || ''} onChange={(e) => setEditStage({ ...editStage, keterangan: e.target.value })} />
+                          </td>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button className="btn-primary btn-sm" style={{ marginRight: '0.35rem' }} onClick={handleSaveEditStage}>Simpan</button>
+                            <button className="btn-primary btn-sm btn-secondary" onClick={() => setEditStage(null)}>Batal</button>
+                          </td>
+                        </tr>
+                      ) : (
                       <tr key={st.id}>
                         <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>{idx + 1}.</td>
                         <td style={{ fontWeight: 600 }}>{st.nama_tahapan}</td>
                         <td>{st.tanggal || '-'}</td>
+                        <td>{st.deadline || '-'}</td>
                         <td>
                           {st.is_meeting ? (
                             <span className="badge" style={{ background: st.tipe_meeting === 'Online' ? '#eff6ff' : '#fef3c7', color: st.tipe_meeting === 'Online' ? '#1d4ed8' : '#b45309', border: `1px solid ${st.tipe_meeting === 'Online' ? '#bfdbfe' : '#fde68a'}`, fontWeight: 700 }}>
@@ -677,7 +893,15 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                           </span>
                         </td>
                         <td><ClickableText text={st.keterangan} /></td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            className="btn-primary btn-sm btn-secondary"
+                            style={{ marginRight: '0.35rem' }}
+                            onClick={() => setEditStage({ ...st })}
+                            title="Edit Tahapan"
+                          >
+                            Edit
+                          </button>
                           <button
                             className="btn-logout"
                             style={{ padding: '0.2rem 0.5rem', width: 'auto', display: 'inline-flex', alignItems: 'center' }}
@@ -688,6 +912,7 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                           </button>
                         </td>
                       </tr>
+                      )
                     ))
                   )}
                 </tbody>
@@ -786,7 +1011,10 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
                               type="date"
                               style={{ margin: 0, padding: '0.25rem 0.4rem', width: '135px', fontSize: '0.8rem' }}
                               defaultValue={b.tanggal_penagihan || ''}
-                              onBlur={(e) => handleUpdateBillingField(b.id, 'tanggal_penagihan', e.target.value || null)}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v || v.slice(0, 4) >= '2000') handleUpdateBillingField(b.id, 'tanggal_penagihan', v || null);
+                              }}
                             />
                           ) : (
                             <span>{b.tanggal_penagihan || '-'}</span>
@@ -860,6 +1088,27 @@ export default function DetailModal({ project, onClose, onRefresh, initialTab }:
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               <button className="btn-primary btn-secondary" onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '0.65rem' }}>Batal</button>
               <button className="btn-primary" onClick={executeDelete} style={{ flex: 1, padding: '0.65rem', background: '#dc2626' }}>Ya, Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteProject && (
+        <div className="modal-overlay" style={{ zIndex: 10001 }} onClick={() => setShowDeleteProject(false)}>
+          <div
+            style={{ background: '#ffffff', borderRadius: '16px', maxWidth: '420px', width: '100%', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', textAlign: 'center', animation: 'modalSlide 0.2s ease' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <IconTrash size={26} color="#dc2626" />
+            </div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-main)' }}>Hapus Pekerjaan</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Apakah Anda yakin ingin menghapus <strong>"{project.nama_pekerjaan}"</strong> beserta seluruh tahapan dan termin penagihannya? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button className="btn-primary btn-secondary" onClick={() => setShowDeleteProject(false)} style={{ flex: 1, padding: '0.65rem' }}>Batal</button>
+              <button className="btn-primary" onClick={handleDeleteProject} style={{ flex: 1, padding: '0.65rem', background: '#dc2626' }}>Ya, Hapus</button>
             </div>
           </div>
         </div>

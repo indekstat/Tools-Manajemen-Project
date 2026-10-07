@@ -5,6 +5,10 @@ export const getApiUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
+    // Diakses lewat domain (tanpa port eksplisit): backend diproxy di /backend oleh nginx
+    if (!window.location.port) {
+      return `${protocol}//${window.location.host}/backend`;
+    }
     return `${protocol}//${hostname}:8145`;
   }
   return 'http://localhost:8145';
@@ -25,6 +29,18 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
     ...options,
     headers,
   });
+
+  const method = (options.method || 'GET').toUpperCase();
+  const isAuthCall = url.startsWith('/login') || url.startsWith('/api/auth');
+  if (method !== 'GET' && !isAuthCall && typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('app:toast', {
+        detail: response.ok
+          ? { type: 'success', message: 'Perubahan tersimpan' }
+          : { type: 'error', message: 'Perubahan gagal disimpan' },
+      })
+    );
+  }
 
   if (response.status === 401) {
     localStorage.removeItem('token');

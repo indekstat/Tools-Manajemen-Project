@@ -75,6 +75,7 @@ class ProjectStage(Base):
     project_id = Column(Integer, ForeignKey("projects.id"))
     nama_tahapan = Column(String)
     tanggal = Column(Date, nullable=True)
+    deadline = Column(Date, nullable=True)
     status = Column(String) # Ongoing, Selesai, Pending
     keterangan = Column(String, nullable=True)
     is_meeting = Column(Boolean, default=False)

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { IconChevronLeft, IconChevronRight, IconSearch, IconCalendar, IconUstek, IconClose, IconEye, IconGov, IconProject } from './Icons';
 
 interface CalendarEvent {
@@ -30,8 +30,10 @@ export default function CalendarWidget({
   const [currentMonth, setCurrentMonth] = useState<number>(8); // 0-indexed (Sept)
   const [popupData, setPopupData] = useState<{ dateStr: string; events: CalendarEvent[] } | null>(null);
 
+  const initialized = useRef(false);
   useEffect(() => {
-    if (events.length > 0) {
+    if (events.length > 0 && !initialized.current) {
+      initialized.current = true;
       const sorted = [...events].sort(
         (a, b) => new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime()
       );

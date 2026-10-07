@@ -391,19 +391,55 @@ export default function Dashboard() {
     };
   }, [wonProjects]);
 
-  // Calendar events for SPK Expiration Deadlines
+  // Kalender semua project (deadline pengumuman, tahapan, SPK, penagihan, ustek)
+  const CAL_KINDS = [
+    { key: 'pengumuman', label: 'Deadline Pengumuman' },
+    { key: 'bidding', label: 'Tahapan Bidding' },
+    { key: 'tahapan', label: 'Tahapan Project' },
+    { key: 'ustek', label: 'Deadline Ustek' },
+    { key: 'spk', label: 'SPK Berakhir' },
+    { key: 'penagihan', label: 'Penagihan' },
+  ];
+  const [calKinds, setCalKinds] = useState<string[]>(CAL_KINDS.map((k) => k.key));
+  const [calDivisi, setCalDivisi] = useState('Semua');
+  const [calStatus, setCalStatus] = useState('Semua');
+  const [calSearch, setCalSearch] = useState('');
+
+  const allCalendarEvents = useMemo(() => {
+    const evs: any[] = [];
+    let seq = 0;
+    const add = (p: any, kind: string, dateStr: string | null, type: 'bidding' | 'ustek', label: string) => {
+      if (!dateStr) return;
+      evs.push({ id: p.id * 1000 + seq++, kind, dateStr, project: p, type, title: p.nama_pekerjaan, stageOrPic: label });
+    };
+    projects.forEach((p) => {
+      add(p, 'pengumuman', p.deadline_pengumuman, 'bidding', 'Deadline Pengumuman');
+      (p.bidding_stages || []).forEach((st: any) => add(p, 'bidding', st.tanggal_deadline, 'bidding', `Bidding: ${st.nama_tahapan}`));
+      (p.stages || []).forEach((st: any) => {
+        add(p, 'tahapan', st.tanggal, 'ustek', `Tahapan: ${st.nama_tahapan}`);
+        add(p, 'tahapan', st.deadline, 'ustek', `Deadline: ${st.nama_tahapan}`);
+      });
+      add(p, 'ustek', p.deadline_penulisan_ustek, 'ustek', 'Deadline Penulisan Ustek');
+      add(p, 'spk', p.tanggal_spk_berakhir, 'ustek', 'SPK Berakhir');
+      (p.billings || []).forEach((b: any) => add(p, 'penagihan', b.tanggal_penagihan, 'ustek', `Penagihan: ${b.nama}`));
+    });
+    return evs;
+  }, [projects]);
+
   const spkCalendarEvents = useMemo(() => {
-    return wonProjects
-      .filter((p) => p.tanggal_spk_berakhir && !p.status_selesai_substansi)
-      .map((p) => ({
-        id: p.id,
-        dateStr: p.tanggal_spk_berakhir,
-        project: p,
-        type: 'ustek' as const,
-        title: p.nama_pekerjaan,
-        stageOrPic: `Deadline SPK (PIC: ${p.pic_substansi || 'Gov/Pol'})`,
-      }));
-  }, [wonProjects]);
+    const q = calSearch.trim().toLowerCase();
+    return allCalendarEvents.filter((ev) => {
+      const p = ev.project;
+      if (!calKinds.includes(ev.kind)) return false;
+      if (calDivisi !== 'Semua' && (p.divisi_substansi || p.kategori_project) !== calDivisi) return false;
+      if (calStatus !== 'Semua') {
+        const isWon = p.status_project === 'Menang' || p.jenis_mekanisme === 'PL';
+        if (calStatus === 'Menang' ? !isWon : (p.status_project || 'Ongoing') !== calStatus || isWon) return false;
+      }
+      if (q && !String(p.nama_pekerjaan || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [allCalendarEvents, calKinds, calDivisi, calStatus, calSearch]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -1222,10 +1258,41 @@ export default function Dashboard() {
       {/* ========================================================================= */}
       <div>
         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary-color)', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <IconCalendar size={18} color="var(--primary-color)" /> KALENDER DEADLINE TANGGAL SPK BERAKHIR
+          <IconCalendar size={18} color="var(--primary-color)" /> KALENDER SEMUA PROJECT
+        </div>
+        <div className="glass-card" style={{ padding: '0.85rem 1rem', marginBottom: '0.85rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+          <input
+            className="input-field"
+            placeholder="Cari nama pekerjaan..."
+            style={{ margin: 0, width: '220px' }}
+            value={calSearch}
+            onChange={(e) => setCalSearch(e.target.value)}
+          />
+          <select className="input-field" style={{ margin: 0, width: '130px' }} value={calDivisi} onChange={(e) => setCalDivisi(e.target.value)}>
+            {['Semua', 'Gov', 'Pol'].map((o) => <option key={o} value={o}>{o === 'Semua' ? 'Semua Divisi' : o}</option>)}
+          </select>
+          <select className="input-field" style={{ margin: 0, width: '150px' }} value={calStatus} onChange={(e) => setCalStatus(e.target.value)}>
+            {['Semua', 'Ongoing', 'Menang', 'Kalah', 'Batal'].map((o) => <option key={o} value={o}>{o === 'Semua' ? 'Semua Status' : o}</option>)}
+          </select>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+            {CAL_KINDS.map((k) => {
+              const on = calKinds.includes(k.key);
+              return (
+                <button
+                  key={k.key}
+                  type="button"
+                  className={`btn-primary btn-sm ${on ? '' : 'btn-secondary'}`}
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                  onClick={() => setCalKinds((prev) => (on ? prev.filter((x) => x !== k.key) : [...prev, k.key]))}
+                >
+                  {k.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <CalendarWidget
-          title="Jadwal Deadline Berakhir SPK"
+          title="Jadwal Semua Project"
           type="all"
           events={spkCalendarEvents}
           onSelectProject={(p) => setSelectedProject(p)}

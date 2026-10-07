@@ -147,7 +147,7 @@ export default function UstekGovPage() {
         </div>
       </div>
 
-      <DetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
+      <DetailModal project={selectedProject} onClose={() => setSelectedProject(null)} onRefresh={loadProjects} />
     </div>
   );
 }

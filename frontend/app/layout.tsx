@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import Sidebar from '../components/Sidebar';
 import AuthGuard from '../components/AuthGuard';
+import Toast from '../components/Toast';
 
 import { Viewport } from 'next';
 
@@ -37,6 +38,7 @@ export default function RootLayout({
             </div>
           </div>
         </AuthGuard>
+        <Toast />
       </body>
     </html>
   );

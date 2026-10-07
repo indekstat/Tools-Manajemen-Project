@@ -61,9 +61,19 @@ class BulkDeleteRequest(BaseModel):
 class ProjectStageBase(BaseModel):
     nama_tahapan: str
     tanggal: Optional[date] = None
+    deadline: Optional[date] = None
     status: Optional[str] = "Ongoing"
     keterangan: Optional[str] = None
     is_meeting: bool = False
+    tipe_meeting: Optional[str] = None
+
+class ProjectStageUpdate(BaseModel):
+    nama_tahapan: Optional[str] = None
+    tanggal: Optional[date] = None
+    deadline: Optional[date] = None
+    status: Optional[str] = None
+    keterangan: Optional[str] = None
+    is_meeting: Optional[bool] = None
     tipe_meeting: Optional[str] = None
 
 class ProjectStageCreate(ProjectStageBase):

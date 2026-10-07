@@ -22,6 +22,11 @@ def ensure_columns():
                 conn.commit()
             except Exception:
                 pass
+        try:
+            conn.execute(text("ALTER TABLE project_stages ADD COLUMN deadline DATE"))
+            conn.commit()
+        except Exception:
+            pass
         for col in ["approval_ustek", "approval_rab", "approval_ta"]:
             try:
                 conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col} BOOLEAN DEFAULT 0"))
@@ -663,6 +668,19 @@ def update_project(project_id: int, project: schemas.ProjectUpdate, db: Session 
     db.refresh(db_project)
     return db_project
 
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    db_project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if current_user.role == "Viewer":
+        raise HTTPException(status_code=403, detail="Viewers cannot delete projects")
+    if current_user.role in ["Gov", "Pol"] and db_project.divisi_substansi != current_user.role:
+        raise HTTPException(status_code=403, detail="Not allowed to delete other division's project")
+    db.delete(db_project)
+    db.commit()
+    return {"message": "Project deleted successfully"}
+
 # ----------------- STAGES (Multi-record) -----------------
 
 @app.get("/projects/{project_id}/stages", response_model=List[schemas.ProjectStageResponse])
@@ -673,6 +691,21 @@ def get_project_stages(project_id: int, db: Session = Depends(get_db), current_u
 def create_project_stage(project_id: int, stage: schemas.ProjectStageBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     db_stage = models.ProjectStage(**stage.model_dump(), project_id=project_id)
     db.add(db_stage)
+    db.commit()
+    db.refresh(db_stage)
+    return db_stage
+
+@app.put("/stages/{stage_id}", response_model=schemas.ProjectStageResponse)
+def update_stage(stage_id: int, stage: schemas.ProjectStageUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    db_stage = db.query(models.ProjectStage).filter(models.ProjectStage.id == stage_id).first()
+    if not db_stage:
+        raise HTTPException(status_code=404, detail="Stage not found")
+    for key, value in stage.model_dump(exclude_unset=True).items():
+        if value is None and key in ("nama_tahapan", "status", "is_meeting"):
+            continue
+        setattr(db_stage, key, value)
+    if not db_stage.is_meeting:
+        db_stage.tipe_meeting = None
     db.commit()
     db.refresh(db_stage)
     return db_stage

@@ -22,8 +22,12 @@ def ensure_columns():
                 conn.commit()
             except Exception:
                 pass
-        for col, typ in [("link_bast", "VARCHAR"), ("link_dokumen_penagihan", "VARCHAR"), ("tanggal_uang_masuk", "DATE"),
-                         ("nominal_yayasan", "FLOAT DEFAULT 0"), ("nominal_pt", "FLOAT DEFAULT 0")]:
+        try:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN entitas VARCHAR"))
+            conn.commit()
+        except Exception:
+            pass
+        for col, typ in [("link_bast", "VARCHAR"), ("link_dokumen_penagihan", "VARCHAR"), ("tanggal_uang_masuk", "DATE")]:
             try:
                 conn.execute(text(f"ALTER TABLE billings ADD COLUMN {col} {typ}"))
                 conn.commit()
@@ -755,7 +759,7 @@ def create_project_billings_bulk(project_id: int, payload: schemas.BillingBulkCr
     created = []
     for i in range(payload.jumlah):
         nominal = payload.total - each * (payload.jumlah - 1) if i == payload.jumlah - 1 else each
-        b = models.Billing(project_id=project_id, nama=f"Termin {existing + i + 1}", nominal=nominal, nominal_pt=nominal, nominal_yayasan=0.0)
+        b = models.Billing(project_id=project_id, nama=f"Termin {existing + i + 1}", nominal=nominal)
         db.add(b)
         created.append(b)
     db.commit()

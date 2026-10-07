@@ -152,9 +152,6 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
     .filter((b: any) => b.status === 'Sudah dibayarkan')
     .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
   
-  const paidBillings = (project.billings || []).filter((b: any) => b.status === 'Sudah dibayarkan');
-  const paidYayasan = paidBillings.reduce((sum: number, b: any) => sum + (b.nominal_yayasan || 0), 0);
-  const paidPt = paidBillings.reduce((sum: number, b: any) => sum + (b.nominal_pt || 0), 0);
 
   const isPaidInFull = totalPaid >= (project.nilai_project_deal || project.nilai_kontrak || 0) && (project.nilai_project_deal || project.nilai_kontrak || 0) > 0;
   const hasAllDocs = hasDokumenLengkap(project);
@@ -315,8 +312,6 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
       body: JSON.stringify({
         nama: billingName.trim() || `Termin ${(project.billings?.length || 0) + 1}`,
         nominal,
-        nominal_pt: nominal,
-        nominal_yayasan: 0,
         tanggal_penagihan: billingDate || null,
         status: billingStatus
       })
@@ -355,13 +350,6 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
       body: JSON.stringify(fields)
     });
     syncParent();
-  };
-
-  // Pembagian pemasukan Yayasan / PT: mengubah salah satu otomatis menyesuaikan sisanya
-  const handleSplit = (b: any, side: 'yayasan' | 'pt', raw: string) => {
-    const val = Math.min(b.nominal || 0, Math.max(0, parseFloat(raw) || 0));
-    const other = (b.nominal || 0) - val;
-    handleUpdateBillingField(b.id, side === 'yayasan' ? 'nominal_yayasan' : 'nominal_pt', val, side === 'yayasan' ? { nominal_pt: other } : { nominal_yayasan: other });
   };
 
   const handleDeleteBilling = async (billingId: number) => {
@@ -967,9 +955,19 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                 <span>Total Terbayar: <strong>Rp {totalPaid.toLocaleString('id-ID')}</strong></span>
                 <span>Target: <strong>Rp {(project.nilai_project_deal || project.nilai_kontrak || 0).toLocaleString('id-ID')}</strong></span>
               </div>
-              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
-                <span style={{ color: '#7c3aed' }}>Masuk Yayasan: <strong>Rp {paidYayasan.toLocaleString('id-ID')}</strong></span>
-                <span style={{ color: '#0369a1' }}>Masuk PT: <strong>Rp {paidPt.toLocaleString('id-ID')}</strong></span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                <span>Entitas Penerima:</span>
+                {canManageFinance ? (
+                  <SearchableSelect
+                    compact
+                    style={{ margin: 0, width: '140px' }}
+                    value={project.entitas || ''}
+                    onChange={(val) => updateProjectField('entitas', val || null)}
+                    options={['PT', 'Yayasan']}
+                  />
+                ) : (
+                  <strong>{project.entitas || '-'}</strong>
+                )}
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div
@@ -1044,8 +1042,6 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                     <th>Tgl Penagihan</th>
                     <th>Status Penagihan</th>
                     <th>Tgl Uang Masuk</th>
-                    <th>Yayasan (Rp)</th>
-                    <th>PT (Rp)</th>
                     <th>BAST</th>
                     <th>Dok. Penagihan</th>
                     {canManageFinance && <th style={{ textAlign: 'right' }}>Aksi</th>}
@@ -1054,7 +1050,7 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                 <tbody>
                   {!project.billings || project.billings.length === 0 ? (
                     <tr>
-                      <td colSpan={canManageFinance ? 10 : 9} style={{ textAlign: 'center', opacity: 0.5, padding: '1.5rem' }}>
+                      <td colSpan={canManageFinance ? 8 : 7} style={{ textAlign: 'center', opacity: 0.5, padding: '1.5rem' }}>
                         Belum ada termin penagihan tercatat.
                       </td>
                     </tr>
@@ -1118,27 +1114,6 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                             <span>{b.tanggal_uang_masuk || '-'}</span>
                           )}
                         </td>
-                        {(['yayasan', 'pt'] as const).map((side) => {
-                          const val = side === 'yayasan' ? b.nominal_yayasan : b.nominal_pt;
-                          return (
-                            <td key={side}>
-                              {canManageFinance ? (
-                                <input
-                                  className="input-field"
-                                  type="number"
-                                  style={{ margin: 0, padding: '0.25rem 0.4rem', width: '120px', fontSize: '0.8rem' }}
-                                  key={`${b.id}-${side}-${val}`}
-                                  defaultValue={val || 0}
-                                  onBlur={(e) => {
-                                    if ((parseFloat(e.target.value) || 0) !== (val || 0)) handleSplit(b, side, e.target.value);
-                                  }}
-                                />
-                              ) : (
-                                <span>Rp {(val || 0).toLocaleString('id-ID')}</span>
-                              )}
-                            </td>
-                          );
-                        })}
                         {(['link_bast', 'link_dokumen_penagihan'] as const).map((field) => (
                           <td key={field}>
                             {b[field] && <ClickableText text={b[field]} buttonLabel={field === 'link_bast' ? 'Buka BAST' : 'Buka Dokumen'} />}

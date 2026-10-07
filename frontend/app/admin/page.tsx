@@ -329,7 +329,7 @@ function FinanceContent() {
                                 </React.Fragment>
                               ))}
                               <th>Dokumen Referensi</th>
-                              <th>Pemasukan Yayasan / PT</th>
+                              <th>Entitas (PT / Yayasan)</th>
                               <th>Tgl Uang Masuk</th>
                               <th>Status Admin</th>
                               <th style={{ textAlign: 'right', minWidth: '220px' }}>Detail & Termin</th>
@@ -454,18 +454,14 @@ function FinanceContent() {
                                         </button>
                                       </div>
                                     </td>
-                                    <td style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                                      {(() => {
-                                        const paid = (p.billings || []).filter((b: any) => b.status === 'Sudah dibayarkan');
-                                        const yy = paid.reduce((t: number, b: any) => t + (b.nominal_yayasan || 0), 0);
-                                        const pt = paid.reduce((t: number, b: any) => t + (b.nominal_pt || 0), 0);
-                                        return (
-                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                                            <span style={{ color: '#7c3aed' }}>Yayasan: Rp {yy.toLocaleString('id-ID')}</span>
-                                            <span style={{ color: '#0369a1' }}>PT: Rp {pt.toLocaleString('id-ID')}</span>
-                                          </div>
-                                        );
-                                      })()}
+                                    <td>
+                                      <SearchableSelect
+                                        compact
+                                        style={{ margin: 0, width: '115px' }}
+                                        value={p.entitas || ''}
+                                        onChange={(val) => updateLink(p.id, 'entitas', val)}
+                                        options={['PT', 'Yayasan']}
+                                      />
                                     </td>
                                     <td style={{ fontSize: '0.8rem' }}>
                                       {(() => {

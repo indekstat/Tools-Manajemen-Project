@@ -134,8 +134,6 @@ class BillingBase(BaseModel):
     link_bast: Optional[str] = None
     link_dokumen_penagihan: Optional[str] = None
     tanggal_uang_masuk: Optional[date] = None
-    nominal_yayasan: Optional[float] = 0.0
-    nominal_pt: Optional[float] = 0.0
 
 class BillingBulkCreate(BaseModel):
     jumlah: int
@@ -153,8 +151,6 @@ class BillingUpdate(BaseModel):
     link_bast: Optional[str] = None
     link_dokumen_penagihan: Optional[str] = None
     tanggal_uang_masuk: Optional[date] = None
-    nominal_yayasan: Optional[float] = None
-    nominal_pt: Optional[float] = None
 
 class BillingResponse(BillingBase):
     id: int
@@ -220,6 +216,7 @@ class ProjectBase(BaseModel):
     link_spk: Optional[str] = None
     link_bast: Optional[str] = None
     link_referensi: Optional[str] = None
+    entitas: Optional[str] = None
 
 class ProjectCreate(ProjectBase):
     pass
@@ -269,6 +266,7 @@ class ProjectUpdate(BaseModel):
     link_spk: Optional[str] = None
     link_bast: Optional[str] = None
     link_referensi: Optional[str] = None
+    entitas: Optional[str] = None
 
 class ProjectResponse(ProjectBase):
     id: int

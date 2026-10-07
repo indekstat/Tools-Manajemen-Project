@@ -62,6 +62,7 @@ class Project(Base):
     link_spk = Column(String, nullable=True)
     link_bast = Column(String, nullable=True)
     link_referensi = Column(String, nullable=True)
+    entitas = Column(String, nullable=True) # PT, Yayasan
 
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     stages = relationship("ProjectStage", back_populates="project", cascade="all, delete-orphan")
@@ -121,8 +122,6 @@ class Billing(Base):
     link_bast = Column(String, nullable=True)
     link_dokumen_penagihan = Column(String, nullable=True)
     tanggal_uang_masuk = Column(Date, nullable=True)
-    nominal_yayasan = Column(Float, default=0.0)
-    nominal_pt = Column(Float, default=0.0)
 
     project = relationship("Project", back_populates="billings")
 

@@ -473,12 +473,12 @@ export default function CalendarWidget({
                   }}
                   className="hover-card"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     {/* WRAPPED TITLE */}
-                    <h4 style={{ fontSize: '0.925rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.4, wordBreak: 'break-word', flex: 1 }}>
+                    <h4 style={{ fontSize: '0.925rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.4, overflowWrap: 'anywhere', flex: '1 1 220px', minWidth: 0 }}>
                       {ev.title}
                     </h4>
-                    <span className={`badge ${ev.type === 'bidding' ? 'badge-potential' : 'badge-gov'}`} style={{ fontSize: '0.725rem', whiteSpace: 'nowrap' }}>
+                    <span className={`badge ${ev.type === 'bidding' ? 'badge-potential' : 'badge-gov'}`} style={{ fontSize: '0.725rem', whiteSpace: 'normal', maxWidth: '100%' }}>
                       {ev.stageOrPic}
                     </span>
                   </div>

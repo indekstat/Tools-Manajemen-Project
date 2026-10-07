@@ -27,6 +27,12 @@ def ensure_columns():
             try:
                 conn.execute(text(f"ALTER TABLE billings ADD COLUMN {col} {typ}"))
                 conn.commit()
+                if col == "link_bast":
+                    # BAST kini per termin: salin BAST level pekerjaan ke termin yang sudah ada (sekali saja)
+                    conn.execute(text(
+                        "UPDATE billings SET link_bast = (SELECT link_bast FROM projects WHERE projects.id = billings.project_id) "
+                        "WHERE link_bast IS NULL"))
+                    conn.commit()
             except Exception:
                 pass
         try:

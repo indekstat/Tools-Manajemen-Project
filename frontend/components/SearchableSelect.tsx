@@ -43,12 +43,20 @@ export default function SearchableSelect({
   const triggerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const normalizedOptions: Option[] = options.map((opt) => {
-    if (typeof opt === 'string' || typeof opt === 'number') {
-      return { value: opt, label: String(opt) };
-    }
-    return opt;
-  });
+  const seenValues = new Set<string>();
+  const normalizedOptions: Option[] = options
+    .map((opt) => {
+      if (typeof opt === 'string' || typeof opt === 'number') {
+        return { value: opt, label: String(opt) };
+      }
+      return opt;
+    })
+    .filter((opt) => {
+      const k = String(opt.value);
+      if (seenValues.has(k)) return false;
+      seenValues.add(k);
+      return true;
+    });
 
   const selectedOption = normalizedOptions.find((opt) => String(opt.value) === String(value));
 
@@ -234,12 +242,12 @@ export default function SearchableSelect({
                   Tidak ada opsi yang sesuai
                 </div>
               ) : (
-                filteredOptions.map((opt) => {
+                filteredOptions.map((opt, idx) => {
                   const isSelected = String(opt.value) === String(value);
                   const isTambahBaru = String(opt.value) === '+ Tambah Baru' || String(opt.value) === 'Tambah Baru';
                   return (
                     <div
-                      key={String(opt.value)}
+                      key={`${String(opt.value)}-${idx}`}
                       onClick={() => handleSelect(opt.value)}
                       style={{
                         padding: '0.45rem 0.75rem',

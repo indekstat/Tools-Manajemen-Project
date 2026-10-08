@@ -83,7 +83,9 @@ function FinanceContent() {
   };
 
   const userOptions = useMemo(() => {
-    return internalUsers.map((u) => u.nama || u.username);
+    return internalUsers
+      .filter((u) => (u.divisi || '').toLowerCase().includes('finance'))
+      .map((u) => u.nama || u.username);
   }, [internalUsers]);
 
   const updateLink = async (id: number, field: string, value: any) => {

@@ -342,6 +342,32 @@ def get_db_users_as_auth_detail(db: Session) -> List[schemas.AuthUserDetail]:
 
     return list(dedup_map.values())
 
+# Nama divisi/departemen PNC -> nama divisi baku
+DIVISI_ALIAS = {
+    "IR": "Institutional Relationship",
+    "Government": "Public Policy",
+    "Politics": "Political Science",
+    "Data Sains": "Data Science",
+    "Finance": "Finance & Administration",
+    "Engineering": "System & Technology",
+}
+
+# Divisi baku -> role sistem (dipakai untuk hak akses)
+DIVISI_ROLE_MAP = {
+    "Institutional Relationship": "IR",
+    "Public Policy": "Gov",
+    "Political Science": "Pol",
+    "Data Science": "Pol",
+    "Finance & Administration": "Finance",
+    "System & Technology": "Systech",
+}
+
+def normalize_divisi(dept):
+    return DIVISI_ALIAS.get(dept, dept)
+
+def role_from_divisi(dept):
+    return DIVISI_ROLE_MAP.get(normalize_divisi(dept), "Viewer")
+
 def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refresh: bool = False):
     global PNC_CACHE_DATA, PNC_CACHE_TIME, LATEST_PNC_TOKEN
     import time
@@ -377,8 +403,7 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                 email = u.get("email") or f"{username}@indekstat.com"
 
                 dept = k.get("departemen") or k.get("divisi") or "General"
-                if dept == "IR":
-                    dept = "Institutional Relationship"
+                dept = normalize_divisi(dept)
                 jab = k.get("jabatan") or k.get("level_jabatan") or "STAFF"
 
                 jab_upper = str(jab).upper()
@@ -390,7 +415,7 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                     level_jabatan = "STAFF"
 
                 is_leader = level_jabatan in ["CHIEF", "HEAD"]
-                assigned_role = "Superadmin" if is_leader else dept
+                assigned_role = "Superadmin" if is_leader else role_from_divisi(dept)
 
                 # Sync to local DB for relational integrity
                 alif_aliases_sync = ["m.fadillah", "alif", "m.alif.hanif.fadillah", "m.alif.hanif.f", "alif131199", "m_fadillah"]

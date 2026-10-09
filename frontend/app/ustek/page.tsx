@@ -5,6 +5,7 @@ import { fetchWithAuth } from '../../lib/api';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
+import FreezeToggle, { useFreezePanes } from '../../components/FreezeToggle';
 import { IconUstek, IconCheck, IconClock, IconEye, IconGlobe, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser, IconFinance } from '../../components/Icons';
 
 export default function UstekPage() {
@@ -185,6 +186,7 @@ function LinkCell({ value, placeholder, onSave }: { value: string; placeholder: 
 function UstekContent() {
   const searchParams = useSearchParams();
   const currentView = searchParams.get('view') || 'worksheet';
+  const { freeze, toggle: toggleFreeze, containerClass: freezeClass } = useFreezePanes();
 
   const [projects, setProjects] = useState<any[]>([]);
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
@@ -678,6 +680,8 @@ function UstekContent() {
                   <IconSearch size={16} />
                 </span>
               </div>
+
+              <FreezeToggle freeze={freeze} toggle={toggleFreeze} />
             </div>
 
             {loading ? (
@@ -720,7 +724,7 @@ function UstekContent() {
                     </div>
 
                     {!isCollapsed && (
-                      <div className="table-container" style={{ overflowX: 'auto' }}>
+                      <div className={freezeClass}>
                         <table>
                           <thead>
                             <tr>

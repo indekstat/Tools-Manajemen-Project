@@ -5,6 +5,7 @@ import { fetchWithAuth, hasDokumenLengkap, isProjectSelesaiAkhir, isAdministrasi
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
+import FreezeToggle, { useFreezePanes } from '../../components/FreezeToggle';
 import { IconFinance, IconGlobe, IconUstek, IconClock, IconTrophy, IconEye, IconFolder, IconChevronDown, IconChevronRight, IconCheck, IconSearch, IconUser } from '../../components/Icons';
 
 export default function FinancePage() {
@@ -18,6 +19,7 @@ export default function FinancePage() {
 function FinanceContent() {
   const searchParams = useSearchParams();
   const currentView = searchParams.get('view') || 'worksheet';
+  const { freeze, toggle: toggleFreeze, containerClass: freezeClass } = useFreezePanes();
 
   const [projects, setProjects] = useState<any[]>([]);
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
@@ -270,6 +272,8 @@ function FinanceContent() {
                   <IconSearch size={16} />
                 </span>
               </div>
+
+              <FreezeToggle freeze={freeze} toggle={toggleFreeze} />
             </div>
 
             {loading ? (
@@ -312,7 +316,7 @@ function FinanceContent() {
                     </div>
 
                     {!isCollapsed && (
-                      <div className="table-container">
+                      <div className={freezeClass}>
                         <table>
                           <thead>
                             <tr>

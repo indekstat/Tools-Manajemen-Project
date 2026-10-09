@@ -6,6 +6,7 @@ import DetailModal from '../../components/DetailModal';
 import CalendarWidget from '../../components/CalendarWidget';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
+import FreezeToggle, { useFreezePanes } from '../../components/FreezeToggle';
 import { IconTrophy, IconGlobe, IconGov, IconPol, IconCheck, IconClock, IconEye, IconUstek, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser } from '../../components/Icons';
 
 export default function PekerjaanMenangPage() {
@@ -19,6 +20,7 @@ export default function PekerjaanMenangPage() {
 function PekerjaanMenangContent() {
   const searchParams = useSearchParams();
   const currentView = searchParams.get('view') || 'worksheet';
+  const { freeze, toggle: toggleFreeze, containerClass: freezeClass } = useFreezePanes();
 
   const [projects, setProjects] = useState<any[]>([]);
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
@@ -300,6 +302,8 @@ function PekerjaanMenangContent() {
                   <IconSearch size={16} />
                 </span>
               </div>
+
+              <FreezeToggle freeze={freeze} toggle={toggleFreeze} />
             </div>
 
             {loading ? (
@@ -342,7 +346,7 @@ function PekerjaanMenangContent() {
                     </div>
 
                     {!isCollapsed && (
-                      <div className="table-container">
+                      <div className={freezeClass}>
                         <table>
                           <thead>
                             <tr>

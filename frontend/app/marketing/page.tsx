@@ -5,6 +5,7 @@ import { fetchWithAuth, formatCurrencySmart } from '../../lib/api';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
+import FreezeToggle, { useFreezePanes } from '../../components/FreezeToggle';
 import CalendarWidget from '../../components/CalendarWidget';
 import { IconTarget, IconFileText, IconFilter, IconFolder, IconChevronDown, IconChevronRight, IconUstek, IconEye, IconSearch, IconTrophy, IconClock, IconGlobe, IconUser, IconCalendar, IconTrash, IconChart } from '../../components/Icons';
 
@@ -19,6 +20,7 @@ export default function MarketingPage() {
 function MarketingContent() {
   const searchParams = useSearchParams();
   const currentView = searchParams.get('view') || 'worksheet';
+  const { freeze, toggle: toggleFreeze, containerClass: freezeClass } = useFreezePanes();
 
   const [projects, setProjects] = useState<any[]>([]);
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
@@ -905,6 +907,8 @@ const getTahapanRank = (key: string) => {
                   <IconSearch size={16} />
                 </span>
               </div>
+
+              <FreezeToggle freeze={freeze} toggle={toggleFreeze} />
             </div>
 
             {activeTab === 'bidding' ? (
@@ -991,7 +995,7 @@ const getTahapanRank = (key: string) => {
                             )}
 
                             {!isSubCollapsed && (
-                              <div className="table-container">
+                              <div className={freezeClass}>
                                 <table>
                                   <thead>
                                     <tr>
@@ -1269,7 +1273,7 @@ const getTahapanRank = (key: string) => {
               })
             ) : (
               /* PENUNJUKAN LANGSUNG (PL) TABLE */
-              <div className="table-container">
+              <div className={freezeClass}>
                 <table>
                   <thead>
                     <tr>

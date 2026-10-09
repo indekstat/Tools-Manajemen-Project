@@ -98,7 +98,7 @@ def hris_login(payload: schemas.AuthLoginRequest, db: Session = Depends(get_db))
     if clean_u in alif_aliases:
         candidates = [username, "alif", "m.fadillah", "alif131199", "m.alif.hanif.f", "m.alif.hanif.fadillah", "m_fadillah"]
 
-    hris_url = os.getenv("HRIS_API_URL", "https://pnc.indekstat.cloud")
+    hris_url = os.getenv("HRIS_API_URL", "https://pnc.indekstat.com")
     resp = None
     try:
         import requests
@@ -229,12 +229,12 @@ def hris_login(payload: schemas.AuthLoginRequest, db: Session = Depends(get_db))
                 }
             }
         else:
-            raise HTTPException(status_code=401, detail="Username atau Password salah (terverifikasi via pnc.indekstat.cloud)")
+            raise HTTPException(status_code=401, detail="Username atau Password salah (terverifikasi via pnc.indekstat.com)")
     except HTTPException:
         raise
     except Exception as err:
         print("HRIS connection error:", err)
-        raise HTTPException(status_code=503, detail=f"Gagal terhubung ke server HRIS pnc.indekstat.cloud: {str(err)}")
+        raise HTTPException(status_code=503, detail=f"Gagal terhubung ke server HRIS pnc.indekstat.com: {str(err)}")
 
 
 @app.get("/api/auth/me/", response_model=schemas.AuthUserDetail)
@@ -384,7 +384,7 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
     try:
         import requests
         auth_header = f"Token {active_token}" if not active_token.startswith("Bearer ") and not active_token.startswith("Token ") else active_token
-        resp = requests.get("https://pnc.indekstat.cloud/api/auth/users/", headers={"Authorization": auth_header}, timeout=10)
+        resp = requests.get("https://pnc.indekstat.com/api/auth/users/", headers={"Authorization": auth_header}, timeout=10)
 
         results = []
         if resp.status_code == 200:
@@ -517,7 +517,7 @@ def get_users(db: Session = Depends(get_db), current_user: models.User = Depends
 
 @app.post("/users", response_model=schemas.UserResponse)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Superadmin", "Admin", "IR", "Gov"]))):
-    raise HTTPException(status_code=400, detail="Pembuatan akun dari localhost tidak diizinkan. Seluruh akun harus terdaftar di HRIS pnc.indekstat.cloud")
+    raise HTTPException(status_code=400, detail="Pembuatan akun dari localhost tidak diizinkan. Seluruh akun harus terdaftar di HRIS pnc.indekstat.com")
 
 @app.put("/users/{user_id}", response_model=schemas.UserResponse)
 def update_user(user_id: int, user_update: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Superadmin", "Admin", "IR", "Gov"]))):

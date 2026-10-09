@@ -64,7 +64,7 @@ export default function UsersManagementPage() {
           <div>
             <h1 className="page-title">User Management / Data Karyawan</h1>
             <p className="page-desc">
-              Daftar akun karyawan & personil internal terintegrasi terpusat dari HRIS <strong>pnc.indekstat.cloud</strong>.
+              Daftar akun karyawan & personil internal terintegrasi terpusat dari HRIS <strong>pnc.indekstat.com</strong>.
             </p>
           </div>
         </div>

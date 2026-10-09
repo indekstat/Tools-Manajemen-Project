@@ -100,16 +100,27 @@ def hris_login(payload: schemas.AuthLoginRequest, db: Session = Depends(get_db))
 
     hris_url = os.getenv("HRIS_API_URL", "https://pnc.indekstat.com")
     resp = None
+    hris_answered = False  # True jika HRIS sempat memberi jawaban valid (bukan error koneksi / 5xx)
+    last_conn_error = None
     try:
         import requests
         for cand in candidates:
             try:
                 r = requests.post(f"{hris_url.rstrip('/')}/api/auth/login/", json={"username": cand, "password": password}, timeout=5)
+                if r.status_code < 500:
+                    hris_answered = True
+                else:
+                    last_conn_error = f"HTTP {r.status_code}"
                 if r.status_code == 200:
                     resp = r
                     break
-            except Exception:
+            except Exception as e:
+                last_conn_error = str(e)
                 continue
+
+        if not hris_answered:
+            print("HRIS unreachable:", last_conn_error)
+            raise HTTPException(status_code=503, detail="Server HRIS sedang bermasalah atau tidak dapat dihubungi. Silakan coba beberapa saat lagi.")
 
         if resp and resp.status_code == 200:
             hris_data = resp.json()

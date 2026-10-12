@@ -16,7 +16,7 @@ Base.metadata.create_all(bind=engine)
 def ensure_columns():
     with engine.connect() as conn:
         from sqlalchemy import text
-        for col in ["metode_pekerjaan", "jenis_pekerjaan"]:
+        for col in ["metode_pekerjaan", "jenis_pekerjaan", "pic_substansi"]:
             try:
                 conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col} VARCHAR"))
                 conn.commit()

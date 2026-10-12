@@ -200,6 +200,7 @@ class ProjectBase(BaseModel):
     status_ustek: Optional[str] = "Belum"
     deadline_penulisan_ustek: Optional[date] = None
     pic_ustek: Optional[str] = None
+    pic_substansi: Optional[str] = None
     tim_ustek: Optional[str] = None
     url_ustek: Optional[str] = None
     url_rab: Optional[str] = None
@@ -249,6 +250,7 @@ class ProjectUpdate(BaseModel):
     status_ustek: Optional[str] = None
     deadline_penulisan_ustek: Optional[date] = None
     pic_ustek: Optional[str] = None
+    pic_substansi: Optional[str] = None
     tim_ustek: Optional[str] = None
     url_ustek: Optional[str] = None
     url_rab: Optional[str] = None

@@ -43,6 +43,7 @@ class Project(Base):
     status_ustek = Column(String, default="Belum") # Belum, On Progress, Selesai
     deadline_penulisan_ustek = Column(Date, nullable=True)
     pic_ustek = Column(String)
+    pic_substansi = Column(String, nullable=True)
     tim_ustek = Column(String, nullable=True)
     url_ustek = Column(String, nullable=True)
     url_rab = Column(String, nullable=True)

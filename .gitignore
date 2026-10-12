@@ -1,6 +1,3 @@
 
 # Database lokal (berisi data user)
 backend/*.db
-
-# Data pribadi tenaga ahli (jangan di-commit)
-data_TA/

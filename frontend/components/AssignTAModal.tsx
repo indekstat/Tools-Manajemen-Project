@@ -12,7 +12,7 @@ export default function AssignTAModal({ project, onClose, onChanged }: { project
   const [canEdit, setCanEdit] = useState(false);
   const [search, setSearch] = useState('');
   const [pickedId, setPickedId] = useState<number | null>(null);
-  const [f, setF] = useState({ posisi: '', fee: '', status: 'Diajukan' });
+  const [f, setF] = useState({ posisi: '', status: 'Diajukan' });
   const [err, setErr] = useState('');
 
   const loadAssigned = async () => {
@@ -45,10 +45,10 @@ export default function AssignTAModal({ project, onClose, onChanged }: { project
   const assign = async () => {
     if (!picked) return;
     setErr('');
-    const body = { project_id: project.id, posisi: f.posisi || null, fee: f.fee === '' ? null : Number(f.fee), status: f.status };
+    const body = { project_id: project.id, posisi: f.posisi || null, status: f.status };
     const res = await fetchWithAuth(`/tenaga-ahli/${picked.id}/penugasan`, { method: 'POST', body: JSON.stringify(body) });
     if (res.ok) {
-      setPickedId(null); setF({ posisi: '', fee: '', status: 'Diajukan' });
+      setPickedId(null); setF({ posisi: '', status: 'Diajukan' });
       await loadAssigned(); onChanged?.();
     } else setErr((await res.json().catch(() => ({}))).detail || 'Gagal menugaskan');
   };
@@ -76,16 +76,15 @@ export default function AssignTAModal({ project, onClose, onChanged }: { project
             <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>Sudah ditugaskan ({assigned.length})</div>
             <div className="table-container">
               <table>
-                <thead><tr><th>Kode</th><th>Nama</th><th>Posisi</th><th>Fee</th><th>Status</th>{canEdit && <th></th>}</tr></thead>
+                <thead><tr><th>Kode</th><th>Nama</th><th>Posisi</th><th>Status</th>{canEdit && <th></th>}</tr></thead>
                 <tbody>
                   {assigned.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', opacity: 0.5, padding: '1rem' }}>Belum ada TA.</td></tr>
+                    <tr><td colSpan={5} style={{ textAlign: 'center', opacity: 0.5, padding: '1rem' }}>Belum ada TA.</td></tr>
                   ) : assigned.map((a) => (
                     <tr key={a.id}>
                       <td style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{a.kode_ta}</td>
                       <td style={{ fontWeight: 600 }}>{a.nama_ta}</td>
                       <td>{a.posisi || '-'}</td>
-                      <td>{a.fee != null ? `Rp ${Number(a.fee).toLocaleString('id-ID')}` : '-'}</td>
                       <td>
                         {canEdit ? (
                           <select className="input-field" style={{ margin: 0, padding: '0.2rem' }} value={a.status} onChange={(e) => update(a.id, e.target.value)}>
@@ -119,9 +118,8 @@ export default function AssignTAModal({ project, onClose, onChanged }: { project
                 ))}
               </div>
               {picked && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.5rem', marginTop: '0.75rem', alignItems: 'end' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', marginTop: '0.75rem', alignItems: 'end' }}>
                   <div className="input-group" style={{ margin: 0 }}><label className="input-label">Posisi</label><input className="input-field" value={f.posisi} onChange={(e) => setF({ ...f, posisi: e.target.value })} /></div>
-                  <div className="input-group" style={{ margin: 0 }}><label className="input-label">Fee (Rp)</label><input className="input-field" type="number" value={f.fee} onChange={(e) => setF({ ...f, fee: e.target.value })} /></div>
                   <div className="input-group" style={{ margin: 0 }}><label className="input-label">Status</label>
                     <select className="input-field" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>{STATUS_PENUGASAN.map((s) => <option key={s}>{s}</option>)}</select>
                   </div>

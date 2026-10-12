@@ -37,6 +37,7 @@ export default function DatabaseTA() {
   const [fKategori, setFKategori] = useState('');
   const [fPenugasan, setFPenugasan] = useState<'' | 'ditugaskan' | 'tersedia'>('');
   const [page, setPage] = useState(1);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -167,16 +168,18 @@ export default function DatabaseTA() {
                     <tr><td colSpan={10} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>Tidak ada tenaga ahli yang sesuai.</td></tr>
                   ) : pageRows.map((t, i) => {
                     const newGroup = i === 0 || (pageRows[i - 1].kategori_bidang || '') !== (t.kategori_bidang || '');
+                    const gKey = t.kategori_bidang || '';
+                    const isCollapsed = collapsed.has(gKey);
                     const aktif = t.penugasan.filter(isAktif);
                     const sc = statusColor[t.status] || statusColor.Eksternal;
                     return (
                       <Fragment key={t.id}>
                       {newGroup && (
-                        <tr><td colSpan={10} style={{ background: '#f1f5f9', fontWeight: 800, color: '#334155', fontSize: '0.8rem', letterSpacing: '0.03em' }}>
-                          {t.kategori_bidang || 'Tanpa Kategori'} <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>({filtered.filter((x) => (x.kategori_bidang || '') === (t.kategori_bidang || '')).length})</span>
+                        <tr><td colSpan={10} onClick={() => setCollapsed((prev) => { const n = new Set(prev); if (n.has(gKey)) n.delete(gKey); else n.add(gKey); return n; })} style={{ background: '#f1f5f9', fontWeight: 800, color: '#334155', fontSize: '0.8rem', letterSpacing: '0.03em', cursor: 'pointer', userSelect: 'none' }}>
+                          <span style={{ display: 'inline-block', width: '1rem' }}>{isCollapsed ? '▸' : '▾'}</span>{t.kategori_bidang || 'Tanpa Kategori'} <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>({filtered.filter((x) => (x.kategori_bidang || '') === (t.kategori_bidang || '')).length})</span>
                         </td></tr>
                       )}
-                      <tr>
+                      {!isCollapsed && <tr>
                         <td style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{t.kode}</td>
                         <td style={{ fontWeight: 700, color: '#1e293b' }}>{t.nama}</td>
                         <td>{t.kategori_bidang || '-'}</td>
@@ -191,7 +194,7 @@ export default function DatabaseTA() {
                           )}
                         </td>
                         <td><button className="btn-secondary btn-sm" onClick={() => setSelectedId(t.id)}>Detail</button></td>
-                      </tr>
+                      </tr>}
                       </Fragment>
                     );
                   })}

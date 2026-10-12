@@ -24,7 +24,6 @@ const penugasanColor: Record<string, { bg: string; fg: string }> = {
   Batal: { bg: '#fee2e2', fg: '#b91c1c' },
 };
 
-const rupiah = (v?: number | null) => (v || v === 0 ? `Rp ${Number(v).toLocaleString('id-ID')}` : '-');
 const isAktif = (a: any) => a.status !== 'Batal' && a.status !== 'Selesai';
 
 export default function DatabaseTA() {
@@ -276,7 +275,7 @@ function TADetailModal({ ta, projects, canEdit, onClose, reload }: { ta: any; pr
   const [f, setF] = useState<any>({});
   const [edu, setEdu] = useState<any>({ jenjang: 'S1', jurusan: '', universitas: '', tahun_lulus: '' });
   const [cert, setCert] = useState<any>({ nama_sertifikasi: '', tahun: '' });
-  const [asg, setAsg] = useState<any>({ project_id: '', posisi: '', fee: '', tanggal_mulai: '', tanggal_selesai: '', status: 'Diajukan', catatan: '' });
+  const [asg, setAsg] = useState<any>({ project_id: '', posisi: '', tanggal_mulai: '', tanggal_selesai: '', status: 'Diajukan', catatan: '' });
   const [err, setErr] = useState('');
 
   const startEdit = () => {
@@ -315,8 +314,8 @@ function TADetailModal({ ta, projects, canEdit, onClose, reload }: { ta: any; pr
   const addAsg = async () => {
     setErr('');
     if (!asg.project_id) { setErr('Pilih project terlebih dahulu'); return; }
-    const res = await call(`/tenaga-ahli/${ta.id}/penugasan`, 'POST', nul({ ...asg, project_id: Number(asg.project_id), fee: asg.fee === '' ? '' : Number(asg.fee) }));
-    if (res.ok) setAsg({ project_id: '', posisi: '', fee: '', tanggal_mulai: '', tanggal_selesai: '', status: 'Diajukan', catatan: '' });
+    const res = await call(`/tenaga-ahli/${ta.id}/penugasan`, 'POST', nul({ ...asg, project_id: Number(asg.project_id) }));
+    if (res.ok) setAsg({ project_id: '', posisi: '', tanggal_mulai: '', tanggal_selesai: '', status: 'Diajukan', catatan: '' });
     else setErr((await res.json().catch(() => ({}))).detail || 'Gagal menugaskan');
   };
 
@@ -424,7 +423,7 @@ function TADetailModal({ ta, projects, canEdit, onClose, reload }: { ta: any; pr
         <SectionTitle>Penugasan Project ({ta.penugasan.length})</SectionTitle>
         <div className="table-container">
           <table>
-            <thead><tr><th style={th}>Project</th><th style={th}>Posisi</th><th style={th}>Fee</th><th style={th}>Periode</th><th style={th}>Status</th>{canEdit && <th />}</tr></thead>
+            <thead><tr><th style={th}>Project</th><th style={th}>Posisi</th><th style={th}>Periode</th><th style={th}>Status</th>{canEdit && <th />}</tr></thead>
             <tbody>
               {ta.penugasan.length === 0 && <tr><td colSpan={6} style={{ opacity: 0.5, textAlign: 'center' }}>Belum pernah ditugaskan</td></tr>}
               {ta.penugasan.map((a: any) => {
@@ -433,7 +432,6 @@ function TADetailModal({ ta, projects, canEdit, onClose, reload }: { ta: any; pr
                   <tr key={a.id}>
                     <td style={{ whiteSpace: 'normal', fontWeight: 600 }}>{a.nama_pekerjaan}</td>
                     <td>{a.posisi || '-'}</td>
-                    <td>{rupiah(a.fee)}</td>
                     <td style={{ fontSize: '0.8rem' }}>{a.tanggal_mulai || '-'} s/d {a.tanggal_selesai || '-'}</td>
                     <td>
                       {canEdit ? (
@@ -462,7 +460,6 @@ function TADetailModal({ ta, projects, canEdit, onClose, reload }: { ta: any; pr
                 </select>
               </div>
               <input className="input-field" style={{ margin: 0 }} placeholder="Posisi (mis. Team Leader)" value={asg.posisi} onChange={(e) => setAsg({ ...asg, posisi: e.target.value })} />
-              <input type="number" className="input-field" style={{ margin: 0 }} placeholder="Fee (Rp)" value={asg.fee} onChange={(e) => setAsg({ ...asg, fee: e.target.value })} />
               <input type="date" className="input-field" style={{ margin: 0 }} title="Tanggal mulai" value={asg.tanggal_mulai} onChange={(e) => setAsg({ ...asg, tanggal_mulai: e.target.value })} />
               <input type="date" className="input-field" style={{ margin: 0 }} title="Tanggal selesai" value={asg.tanggal_selesai} onChange={(e) => setAsg({ ...asg, tanggal_selesai: e.target.value })} />
               <select className="input-field" style={{ margin: 0 }} value={asg.status} onChange={(e) => setAsg({ ...asg, status: e.target.value })}>{STATUS_PENUGASAN.map((s) => <option key={s}>{s}</option>)}</select>

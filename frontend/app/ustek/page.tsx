@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { fetchWithAuth } from '../../lib/api';
 import DatabaseTA from '../../components/DatabaseTA';
+import AssignTAModal from '../../components/AssignTAModal';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
@@ -197,6 +198,7 @@ function UstekContent() {
   const [filterStatusUstek, setFilterStatusUstek] = useState<'ALL' | 'ONPROGRESS' | 'SELESAI'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [taProject, setTaProject] = useState<any | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   // Confirmation Modal State
@@ -863,7 +865,15 @@ function UstekContent() {
                                         </button>
                                       )}
                                     </td>
-                                    <td style={{ textAlign: 'right' }}>
+                                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                      <button
+                                        className="btn-primary btn-sm btn-secondary"
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginRight: '0.4rem' }}
+                                        onClick={() => setTaProject(p)}
+                                        title="Assign Tenaga Ahli dari Database TA"
+                                      >
+                                        <IconUser size={14} /> Assign TA
+                                      </button>
                                       <button
                                         className="btn-primary btn-sm btn-secondary"
                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
@@ -924,6 +934,7 @@ function UstekContent() {
         </div>
       )}
 
+      {taProject && <AssignTAModal project={taProject} onClose={() => setTaProject(null)} />}
       <DetailModal project={selectedProject} onClose={() => setSelectedProject(null)} onRefresh={loadProjects} />
     </div>
   );

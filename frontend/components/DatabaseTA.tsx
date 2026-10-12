@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { fetchWithAuth, isProjectSelesaiAkhir } from '../lib/api';
 import { IconUser, IconSearch, IconTrash, IconClose } from './Icons';
 
@@ -73,7 +73,11 @@ export default function DatabaseTA() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return [...list].sort((a, b) => (a.nama || '').localeCompare(b.nama || '', 'id', { sensitivity: 'base' })).filter((t) => {
+    return [...list].sort((a, b) => {
+      if (!a.kategori_bidang !== !b.kategori_bidang) return a.kategori_bidang ? -1 : 1;
+      return (a.kategori_bidang || '').localeCompare(b.kategori_bidang || '', 'id', { sensitivity: 'base' })
+        || (a.nama || '').localeCompare(b.nama || '', 'id', { sensitivity: 'base' });
+    }).filter((t) => {
       if (fStatus && t.status !== fStatus) return false;
       if (fKategori && t.kategori_bidang !== fKategori) return false;
       const aktif = t.penugasan.filter(isAktif).length;
@@ -161,11 +165,18 @@ export default function DatabaseTA() {
                 <tbody>
                   {pageRows.length === 0 ? (
                     <tr><td colSpan={10} style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>Tidak ada tenaga ahli yang sesuai.</td></tr>
-                  ) : pageRows.map((t) => {
+                  ) : pageRows.map((t, i) => {
+                    const newGroup = i === 0 || (pageRows[i - 1].kategori_bidang || '') !== (t.kategori_bidang || '');
                     const aktif = t.penugasan.filter(isAktif);
                     const sc = statusColor[t.status] || statusColor.Eksternal;
                     return (
-                      <tr key={t.id}>
+                      <Fragment key={t.id}>
+                      {newGroup && (
+                        <tr><td colSpan={10} style={{ background: '#f1f5f9', fontWeight: 800, color: '#334155', fontSize: '0.8rem', letterSpacing: '0.03em' }}>
+                          {t.kategori_bidang || 'Tanpa Kategori'} <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>({filtered.filter((x) => (x.kategori_bidang || '') === (t.kategori_bidang || '')).length})</span>
+                        </td></tr>
+                      )}
+                      <tr>
                         <td style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{t.kode}</td>
                         <td style={{ fontWeight: 700, color: '#1e293b' }}>{t.nama}</td>
                         <td>{t.kategori_bidang || '-'}</td>
@@ -181,6 +192,7 @@ export default function DatabaseTA() {
                         </td>
                         <td><button className="btn-secondary btn-sm" onClick={() => setSelectedId(t.id)}>Detail</button></td>
                       </tr>
+                      </Fragment>
                     );
                   })}
                 </tbody>

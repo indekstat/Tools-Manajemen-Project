@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchWithAuth, hasDokumenLengkap, formatCurrencySmart, isAdministrasiSelesai, isProjectSelesaiAkhir } from '../lib/api';
+import { fetchWithAuth, hasDokumenLengkap, formatCurrencySmart, isAdministrasiSelesai, isSubstansiSelesai, isProjectSelesaiAkhir } from '../lib/api';
 import DetailModal from '../components/DetailModal';
 import CalendarWidget from '../components/CalendarWidget';
 import ClickableText from '../components/ClickableText';
@@ -118,9 +118,15 @@ export default function Dashboard() {
 
     // 3. By Status Akhir
     const finalDoneList = wonProjects.filter((p) => isProjectSelesaiAkhir(p));
-    const finalOnprogressList = wonProjects.filter((p) => !isProjectSelesaiAkhir(p));
+    const finalSubsOnlyList = wonProjects.filter((p) => isSubstansiSelesai(p) && !isAdministrasiSelesai(p));
+    const finalAdminOnlyList = wonProjects.filter((p) => !isSubstansiSelesai(p) && isAdministrasiSelesai(p));
+    const finalOnprogressList = wonProjects.filter((p) => !isSubstansiSelesai(p) && !isAdministrasiSelesai(p));
     const finalDoneCount = finalDoneList.length;
+    const finalSubsOnlyCount = finalSubsOnlyList.length;
+    const finalAdminOnlyCount = finalAdminOnlyList.length;
     const finalOnprogressCount = finalOnprogressList.length;
+    const finalSubsOnlyPct = totalWonCount > 0 ? Math.round((finalSubsOnlyCount / totalWonCount) * 100) : 0;
+    const finalAdminOnlyPct = totalWonCount > 0 ? Math.round((finalAdminOnlyCount / totalWonCount) * 100) : 0;
     const finalDonePct = totalWonCount > 0 ? Math.round((finalDoneCount / totalWonCount) * 100) : 0;
     const finalOnprogressPct = totalWonCount > 0 ? Math.round((finalOnprogressCount / totalWonCount) * 100) : 0;
 
@@ -142,6 +148,12 @@ export default function Dashboard() {
       adminPendingPaidPct,
       finalDoneList,
       finalOnprogressList,
+      finalSubsOnlyList,
+      finalAdminOnlyList,
+      finalSubsOnlyCount,
+      finalAdminOnlyCount,
+      finalSubsOnlyPct,
+      finalAdminOnlyPct,
       finalDoneCount,
       finalOnprogressCount,
       finalDonePct,
@@ -691,10 +703,36 @@ export default function Dashboard() {
 
               <div
                 style={{ cursor: 'pointer', padding: '0.4rem', borderRadius: '6px' }}
-                onClick={() => setDrilldownModal({ title: '⏳ Project Masih Dalam Proses', subtitle: `Jumlah: ${sec2Metrics.finalOnprogressCount} project (${sec2Metrics.finalOnprogressPct}%)`, projects: sec2Metrics.finalOnprogressList })}
+                onClick={() => setDrilldownModal({ title: '📘 Substansi Selesai, Administrasi Belum', subtitle: `Jumlah: ${sec2Metrics.finalSubsOnlyCount} project (${sec2Metrics.finalSubsOnlyPct}%)`, projects: sec2Metrics.finalSubsOnlyList })}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                  <span style={{ color: '#f59e0b' }}>⏳ Masih Dalam Proses</span>
+                  <span style={{ color: '#3b82f6' }}>📘 Substansi Selesai, Admin Belum</span>
+                  <span>{sec2Metrics.finalSubsOnlyCount} ({sec2Metrics.finalSubsOnlyPct}%)</span>
+                </div>
+                <div style={{ width: '100%', height: '12px', background: '#e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                  <div style={{ width: `${sec2Metrics.finalSubsOnlyPct}%`, background: '#3b82f6', height: '100%' }} />
+                </div>
+              </div>
+
+              <div
+                style={{ cursor: 'pointer', padding: '0.4rem', borderRadius: '6px' }}
+                onClick={() => setDrilldownModal({ title: '📙 Substansi Belum, Administrasi Selesai', subtitle: `Jumlah: ${sec2Metrics.finalAdminOnlyCount} project (${sec2Metrics.finalAdminOnlyPct}%)`, projects: sec2Metrics.finalAdminOnlyList })}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                  <span style={{ color: '#8b5cf6' }}>📙 Substansi Belum, Admin Sudah</span>
+                  <span>{sec2Metrics.finalAdminOnlyCount} ({sec2Metrics.finalAdminOnlyPct}%)</span>
+                </div>
+                <div style={{ width: '100%', height: '12px', background: '#e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                  <div style={{ width: `${sec2Metrics.finalAdminOnlyPct}%`, background: '#8b5cf6', height: '100%' }} />
+                </div>
+              </div>
+
+              <div
+                style={{ cursor: 'pointer', padding: '0.4rem', borderRadius: '6px' }}
+                onClick={() => setDrilldownModal({ title: '⏳ Project Masih Dalam Proses (Substansi & Admin Belum)', subtitle: `Jumlah: ${sec2Metrics.finalOnprogressCount} project (${sec2Metrics.finalOnprogressPct}%)`, projects: sec2Metrics.finalOnprogressList })}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                  <span style={{ color: '#f59e0b' }}>⏳ Masih Dalam Proses (Substansi & Admin Belum)</span>
                   <span>{sec2Metrics.finalOnprogressCount} ({sec2Metrics.finalOnprogressPct}%)</span>
                 </div>
                 <div style={{ width: '100%', height: '12px', background: '#e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>

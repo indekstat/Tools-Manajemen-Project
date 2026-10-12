@@ -22,7 +22,7 @@ export default function UstekGovPage() {
           const govProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
             (p.divisi_substansi === 'Gov' || p.kategori_project === 'Gov') &&
-            (p.tahapan === 'Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
+            (p.tahapan === 'Penawaran' || p.tahapan === 'Upload Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
           );
           setProjects(govProjects);
         }

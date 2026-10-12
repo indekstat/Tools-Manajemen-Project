@@ -154,11 +154,12 @@ function MarketingContent() {
     return [...Array.from(set), '+ Tambah Baru'];
   }, [projects]);
 
-const TAHAPAN_ORDER = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penawaran'];
+const TAHAPAN_ORDER = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Upload Penawaran', 'Menunggu Pengumuman'];
 
 const getTahapanRank = (key: string) => {
   if (!key) return 99;
   const k = key.toLowerCase();
+  if (k.includes('menunggu pengumuman')) return 4;
   if (k.includes('penyusunan ustek') || k.includes('upload ustek') || k.includes('penawaran')) return 3;
   const index = TAHAPAN_ORDER.findIndex((t) => k.includes(t.toLowerCase()));
   return index !== -1 ? index : 99;
@@ -170,7 +171,7 @@ const getTahapanRank = (key: string) => {
       const activeStage = p.bidding_stages.find((st: any) => st.status === 'Onprogress' || st.status === 'OnProgress');
       if (activeStage) {
         let name = activeStage.nama_tahapan;
-        if (name === 'Penyusunan Ustek' || name === 'Upload Ustek') name = 'Penawaran';
+        if (name === 'Penyusunan Ustek' || name === 'Upload Ustek' || name === 'Penawaran') name = 'Upload Penawaran';
         return name;
       }
       const selesaiStages = p.bidding_stages.filter((st: any) => st.status === 'Selesai');
@@ -181,16 +182,16 @@ const getTahapanRank = (key: string) => {
           return rankB - rankA;
         });
         const highestDoneRank = getTahapanRank(sorted[0].nama_tahapan);
-        if (highestDoneRank < 3) {
+        if (highestDoneRank < TAHAPAN_ORDER.length - 1) {
           return TAHAPAN_ORDER[highestDoneRank + 1];
         } else {
-          return 'Penawaran';
+          return TAHAPAN_ORDER[TAHAPAN_ORDER.length - 1];
         }
       }
     }
     let rawTahapan = p.tahapan || 'Upload PQ';
-    if (rawTahapan === 'Penyusunan Ustek' || rawTahapan === 'Upload Ustek') {
-      return 'Penawaran';
+    if (rawTahapan === 'Penyusunan Ustek' || rawTahapan === 'Upload Ustek' || rawTahapan === 'Penawaran') {
+      return 'Upload Penawaran';
     }
     return rawTahapan;
   };
@@ -405,7 +406,7 @@ const getTahapanRank = (key: string) => {
 
   // Tahapan Seleksi Breakdown (Ongoing vs Total Agregat)
   const tahapanSeleksiBreakdown = useMemo(() => {
-    const standardStages = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Penawaran'];
+    const standardStages = ['Upload PQ', 'Evaluasi PQ', 'Pembuktian', 'Upload Penawaran', 'Menunggu Pengumuman'];
     const ongoingMap: Record<string, { count: number; totalNilai: number; projects: any[] }> = {};
     const totalMap: Record<string, { count: number; totalNilai: number; projects: any[] }> = {};
 

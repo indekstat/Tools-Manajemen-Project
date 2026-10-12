@@ -27,7 +27,7 @@ export default function SubstansiPage() {
         if (Array.isArray(data)) {
           const ustekProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
-            (p.tahapan === 'Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
+            (p.tahapan === 'Penawaran' || p.tahapan === 'Upload Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
           );
           setProjects(ustekProjects);
         }

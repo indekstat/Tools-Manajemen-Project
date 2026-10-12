@@ -238,7 +238,7 @@ function UstekContent() {
           // Filter pekerjaan yang masuk tahapan Ustek DAN status bidding Ongoing
           const ustekProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
-            (p.tahapan === 'Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek' || p.jenis_mekanisme === 'PL')
+            (p.tahapan === 'Penawaran' || p.tahapan === 'Upload Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek' || p.jenis_mekanisme === 'PL')
           );
           setProjects(ustekProjects);
           setSelectedProject((prev: any) => (prev ? data.find((d: any) => d.id === prev.id) || prev : prev));

@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { fetchWithAuth } from '../../lib/api';
+import DatabaseTA from '../../components/DatabaseTA';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
@@ -351,6 +352,8 @@ function UstekContent() {
       fullyApproved,
     };
   }, [projects]);
+
+  if (currentView === 'database-ta') return <DatabaseTA />;
 
   return (
     <div>

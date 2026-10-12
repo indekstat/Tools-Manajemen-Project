@@ -70,6 +70,7 @@ class Project(Base):
     bidding_stages = relationship("BiddingStage", back_populates="project", cascade="all, delete-orphan")
     billings = relationship("Billing", back_populates="project", cascade="all, delete-orphan")
     dashboards = relationship("ProjectDashboard", back_populates="project", cascade="all, delete-orphan")
+    penugasan_ta = relationship("TAPenugasan", back_populates="project", cascade="all, delete-orphan")
 
 class ProjectStage(Base):
     __tablename__ = "project_stages"
@@ -134,3 +135,58 @@ class ProjectDashboard(Base):
     keterangan = Column(String, nullable=True)
 
     project = relationship("Project", back_populates="dashboards")
+
+class TenagaAhli(Base):
+    __tablename__ = "tenaga_ahli"
+    id = Column(Integer, primary_key=True, index=True)
+    kode = Column(String, unique=True, index=True) # TA-0001
+    nama = Column(String, index=True)
+    kategori_bidang = Column(String, nullable=True)
+    status = Column(String, default="Eksternal") # Internal, Eksternal, Research Associate, Levner
+    no_hp = Column(String, nullable=True)
+    bidang_keahlian = Column(Text, nullable=True)
+    domisili = Column(String, nullable=True)
+    pengalaman_tahun = Column(Float, nullable=True)
+    kategori_pengalaman = Column(String, nullable=True)
+    prioritas = Column(String, nullable=True) # Level 1, 2, 3
+    sumber_data = Column(String, nullable=True)
+    catatan = Column(Text, nullable=True)
+
+    pendidikan = relationship("TAPendidikan", back_populates="tenaga_ahli", cascade="all, delete-orphan")
+    sertifikasi = relationship("TASertifikasi", back_populates="tenaga_ahli", cascade="all, delete-orphan")
+    penugasan = relationship("TAPenugasan", back_populates="tenaga_ahli", cascade="all, delete-orphan")
+
+class TAPendidikan(Base):
+    __tablename__ = "ta_pendidikan"
+    id = Column(Integer, primary_key=True, index=True)
+    ta_id = Column(Integer, ForeignKey("tenaga_ahli.id"), nullable=False)
+    jenjang = Column(String) # S1, S2, S3, D3, D4, ...
+    jurusan = Column(String, nullable=True)
+    universitas = Column(String, nullable=True)
+    tahun_lulus = Column(Integer, nullable=True)
+
+    tenaga_ahli = relationship("TenagaAhli", back_populates="pendidikan")
+
+class TASertifikasi(Base):
+    __tablename__ = "ta_sertifikasi"
+    id = Column(Integer, primary_key=True, index=True)
+    ta_id = Column(Integer, ForeignKey("tenaga_ahli.id"), nullable=False)
+    nama_sertifikasi = Column(Text)
+    tahun = Column(Integer, nullable=True)
+
+    tenaga_ahli = relationship("TenagaAhli", back_populates="sertifikasi")
+
+class TAPenugasan(Base):
+    __tablename__ = "ta_penugasan"
+    id = Column(Integer, primary_key=True, index=True)
+    ta_id = Column(Integer, ForeignKey("tenaga_ahli.id"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    posisi = Column(String, nullable=True) # Team Leader, Tenaga Ahli Desa, dst.
+    fee = Column(Float, nullable=True)
+    tanggal_mulai = Column(Date, nullable=True)
+    tanggal_selesai = Column(Date, nullable=True)
+    status = Column(String, default="Diajukan") # Diajukan, Konfirmasi, Aktif, Selesai, Batal
+    catatan = Column(String, nullable=True)
+
+    tenaga_ahli = relationship("TenagaAhli", back_populates="penugasan")
+    project = relationship("Project", back_populates="penugasan_ta")

@@ -9,6 +9,7 @@ services:
       - HRIS_API_URL=https://pnc.indekstat.com
     volumes:
       - ./backend/project_tracking.db:/app/project_tracking.db
+      - ./backend/data_ta:/app/data_ta
     restart: always
 
   frontend:

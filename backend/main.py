@@ -9,6 +9,7 @@ from database import engine, Base, get_db
 import models
 import schemas
 import auth
+import tenaga_ahli
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -54,11 +55,12 @@ def ensure_columns():
 ensure_columns()
 
 app = FastAPI(title="Project Tracking System API (V2)")
+app.include_router(tenaga_ahli.router)
 
 
 @app.on_event("startup")
 def startup_event():
-    pass
+    tenaga_ahli.seed_if_empty()
 
 app.add_middleware(
     CORSMiddleware,

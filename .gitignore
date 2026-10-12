@@ -3,5 +3,4 @@
 backend/*.db
 
 # Data pribadi tenaga ahli (jangan di-commit)
-backend/data_ta/*.xlsx
 data_TA/

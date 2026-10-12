@@ -73,7 +73,7 @@ export default function DatabaseTA() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return list.filter((t) => {
+    return [...list].sort((a, b) => (a.nama || '').localeCompare(b.nama || '', 'id', { sensitivity: 'base' })).filter((t) => {
       if (fStatus && t.status !== fStatus) return false;
       if (fKategori && t.kategori_bidang !== fKategori) return false;
       const aktif = t.penugasan.filter(isAktif).length;

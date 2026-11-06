@@ -224,7 +224,7 @@ def list_project_ta(project_id: int, db: Session = Depends(get_db), current_user
 @router.post("/tenaga-ahli/{ta_id}/penugasan", response_model=PenugasanResponse)
 def assign_ta(ta_id: int, payload: PenugasanBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
     _get_ta(db, ta_id)
-    if not db.query(models.Project).filter(models.Project.id == payload.project_id).first():
+    if not db.query(models.Project).filter(models.Project.id == payload.project_id, models.Project.deleted_at == None).first():
         raise HTTPException(status_code=404, detail="Project not found")
     dup = db.query(models.TAPenugasan).filter(
         models.TAPenugasan.ta_id == ta_id, models.TAPenugasan.project_id == payload.project_id,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date, DateTime, Text
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -64,11 +64,13 @@ class Project(Base):
     link_bast = Column(String, nullable=True)
     link_referensi = Column(String, nullable=True)
     entitas = Column(String, nullable=True) # PT, Yayasan
+    deleted_at = Column(DateTime, nullable=True)  # soft delete
+    deleted_by = Column(String, nullable=True)
 
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     stages = relationship("ProjectStage", back_populates="project", cascade="all, delete-orphan")
     bidding_stages = relationship("BiddingStage", back_populates="project", cascade="all, delete-orphan")
-    billings = relationship("Billing", back_populates="project", cascade="all, delete-orphan")
+    billings = relationship("Billing", back_populates="project", primaryjoin="and_(Project.id==Billing.project_id, Billing.deleted_at==None)", cascade="all, delete-orphan")
     dashboards = relationship("ProjectDashboard", back_populates="project", cascade="all, delete-orphan")
     penugasan_ta = relationship("TAPenugasan", back_populates="project", cascade="all, delete-orphan")
 
@@ -124,8 +126,10 @@ class Billing(Base):
     link_bast = Column(String, nullable=True)
     link_dokumen_penagihan = Column(String, nullable=True)
     tanggal_uang_masuk = Column(Date, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)  # soft delete
+    deleted_by = Column(String, nullable=True)
 
-    project = relationship("Project", back_populates="billings")
+    project = relationship("Project", back_populates="billings", primaryjoin="and_(Project.id==Billing.project_id, Billing.deleted_at==None)")
 
 class ProjectDashboard(Base):
     __tablename__ = "project_dashboards"

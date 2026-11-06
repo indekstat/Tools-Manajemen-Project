@@ -116,8 +116,8 @@ export default function SubstansiPage() {
                     <tr key={p.id}>
                       <td style={{ fontWeight: 600 }}>{p.nama_pekerjaan}</td>
                       <td>
-                        <span className={`badge ${p.divisi_substansi === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
-                          {p.divisi_substansi || '-'}
+                        <span className={`badge ${p.kategori_project === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
+                          {p.kategori_project || '-'}
                         </span>
                       </td>
                       <td>

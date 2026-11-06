@@ -135,7 +135,6 @@ export default function ProjectDashboardsPage() {
 
       const matchDivisi =
         filterDivisi === 'ALL' ||
-        proj.divisi_substansi === filterDivisi ||
         proj.kategori_project === filterDivisi;
 
       return matchSearch && matchDivisi;
@@ -219,7 +218,7 @@ export default function ProjectDashboardsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem' }}>
           {filteredDashboards.map((item) => {
             const proj = item.project || projects.find((p) => p.id === item.project_id) || {};
-            const isGov = (proj.divisi_substansi || proj.kategori_project) === 'Gov';
+            const isGov = proj.kategori_project === 'Gov';
 
             return (
               <div
@@ -230,7 +229,7 @@ export default function ProjectDashboardsPage() {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.75rem' }}>
                     <span className={`badge ${isGov ? 'badge-gov' : 'badge-pol'}`}>
-                      {proj.divisi_substansi || proj.kategori_project || 'Gov'}
+                      {proj.kategori_project || 'Gov'}
                     </span>
                     <span className="badge" style={{ background: '#f1f5f9', color: '#334155' }}>
                       {proj.jenis_mekanisme || 'Bidding'}

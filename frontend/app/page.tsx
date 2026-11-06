@@ -40,8 +40,8 @@ export default function Dashboard() {
   // ==========================================
   const sec1Metrics = useMemo(() => {
     // By Divisi (Gov vs Pol)
-    const govWonList = wonProjects.filter((p) => (p.divisi_substansi || p.kategori_project) === 'Gov');
-    const polWonList = wonProjects.filter((p) => (p.divisi_substansi || p.kategori_project) === 'Pol');
+    const govWonList = wonProjects.filter((p) => p.kategori_project === 'Gov');
+    const polWonList = wonProjects.filter((p) => p.kategori_project === 'Pol');
     
     const govWonCount = govWonList.length;
     const polWonCount = polWonList.length;
@@ -443,7 +443,7 @@ export default function Dashboard() {
     return allCalendarEvents.filter((ev) => {
       const p = ev.project;
       if (!calKinds.includes(ev.kind)) return false;
-      if (calDivisi !== 'Semua' && (p.divisi_substansi || p.kategori_project) !== calDivisi) return false;
+      if (calDivisi !== 'Semua' && p.kategori_project !== calDivisi) return false;
       if (calStatus !== 'Semua') {
         const isWon = p.status_project === 'Menang' || p.jenis_mekanisme === 'PL';
         if (calStatus === 'Menang' ? !isWon : (p.status_project || 'Ongoing') !== calStatus || isWon) return false;

@@ -485,7 +485,7 @@ export default function CalendarWidget({
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', paddingTop: '0.4rem', borderTop: '1px dashed #cbd5e1' }}>
                     <div>Pemberi Kerja: <strong style={{ color: 'var(--text-main)' }}>{ev.project.pemberi_kerja || '-'}</strong></div>
-                    <div>Divisi: <strong style={{ color: 'var(--text-main)' }}>{ev.project.divisi_substansi || 'Gov'}</strong></div>
+                    <div>Divisi: <strong style={{ color: 'var(--text-main)' }}>{ev.project.kategori_project || 'Gov'}</strong></div>
                   </div>
 
                   <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'flex-end' }}>

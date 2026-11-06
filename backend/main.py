@@ -18,6 +18,15 @@ Base.metadata.create_all(bind=engine)
 def ensure_columns():
     with engine.connect() as conn:
         from sqlalchemy import text
+        # Kolom lama divisi_substansi sudah dihapus dari model; kategori_project kini satu-satunya penentu divisi.
+        # Isi kategori_project yang kosong dari kolom lama (bila masih ada). Bila keduanya terisi tapi beda, kategori_project menang.
+        try:
+            conn.execute(text(
+                "UPDATE projects SET kategori_project = divisi_substansi "
+                "WHERE (kategori_project IS NULL OR kategori_project = '') AND divisi_substansi IN ('Gov', 'Pol')"))
+            conn.commit()
+        except Exception:
+            pass
         for col in ["metode_pekerjaan", "jenis_pekerjaan", "pic_substansi"]:
             try:
                 conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col} VARCHAR"))
@@ -574,7 +583,7 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
     # Gov/Pol can only see their own projects, unless Superadmin/IR/Finance/Viewer
     query = db.query(models.Project).filter(models.Project.deleted_at == None)
     if current_user.role in ["Gov", "Pol"]:
-        query = query.filter(models.Project.divisi_substansi == current_user.role)
+        query = query.filter(models.Project.kategori_project == current_user.role)
     projects = query.all()
 
     # Ensure all Bidding projects have standard 4 stage records created
@@ -705,7 +714,7 @@ def update_project(project_id: int, project: schemas.ProjectUpdate, db: Session 
         
     # Gov/Pol restriction
     if current_user.role in ["Gov", "Pol"]:
-        if db_project.divisi_substansi != current_user.role:
+        if db_project.kategori_project != current_user.role:
             raise HTTPException(status_code=403, detail="Not allowed to edit other division's project")
 
     for key, value in project.model_dump(exclude_unset=True).items():
@@ -738,7 +747,7 @@ def delete_project(project_id: int, db: Session = Depends(get_db), current_user:
         raise HTTPException(status_code=404, detail="Project not found")
     if current_user.role == "Viewer":
         raise HTTPException(status_code=403, detail="Viewers cannot delete projects")
-    if current_user.role in ["Gov", "Pol"] and db_project.divisi_substansi != current_user.role:
+    if current_user.role in ["Gov", "Pol"] and db_project.kategori_project != current_user.role:
         raise HTTPException(status_code=403, detail="Not allowed to delete other division's project")
     db_project.deleted_at = datetime.datetime.utcnow()
     db_project.deleted_by = current_user.username

@@ -9,6 +9,9 @@ import ClickableText from '../../components/ClickableText';
 import FreezeToggle, { useFreezePanes } from '../../components/FreezeToggle';
 import { IconTrophy, IconGlobe, IconGov, IconPol, IconCheck, IconClock, IconEye, IconUstek, IconFolder, IconChevronDown, IconChevronRight, IconSearch, IconAlertTriangle, IconUser } from '../../components/Icons';
 
+// Divisi project ditentukan oleh kategori_project (Gov/Pol); satu project hanya masuk satu divisi.
+const divisiOf = (p: any): string => p.kategori_project || '';
+
 export default function PekerjaanMenangPage() {
   return (
     <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat Halaman Pekerjaan Menang...</div>}>
@@ -118,7 +121,7 @@ function PekerjaanMenangContent() {
     const q = calSearch.trim().toLowerCase();
     const evs: any[] = [];
     projects.forEach((p) => {
-      if (calDivisi !== 'Semua' && (p.divisi_substansi || p.kategori_project) !== calDivisi) return;
+      if (calDivisi !== 'Semua' && divisiOf(p) !== calDivisi) return;
       if (q && !String(p.nama_pekerjaan || '').toLowerCase().includes(q)) return;
       (p.stages || []).forEach((st: any) => {
         if (calStatus !== 'Semua' && st.status !== calStatus) return;
@@ -139,7 +142,7 @@ function PekerjaanMenangContent() {
   const filteredProjects = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return projects.filter((p) => {
-      const matchDivisi = activeTabDivisi === 'ALL' || p.divisi_substansi === activeTabDivisi || p.kategori_project === activeTabDivisi;
+      const matchDivisi = activeTabDivisi === 'ALL' || divisiOf(p) === activeTabDivisi;
       const matchSubstansi = filterStatusSubstansi === 'ALL' || (filterStatusSubstansi === 'SELESAI' ? p.status_selesai_substansi : !p.status_selesai_substansi);
       const matchQuery = !q || (
         (p.nama_pekerjaan || '').toLowerCase().includes(q) ||
@@ -169,8 +172,8 @@ function PekerjaanMenangContent() {
   }, [filteredProjects, filterStatusSubstansi]);
 
   const totalNilaiMenang = filteredProjects.reduce((acc, curr) => acc + (curr.nilai_project_deal || curr.nilai_kontrak || 0), 0);
-  const totalGovCount = projects.filter((p) => p.divisi_substansi === 'Gov' || p.kategori_project === 'Gov').length;
-  const totalPolCount = projects.filter((p) => p.divisi_substansi === 'Pol' || p.kategori_project === 'Pol').length;
+  const totalGovCount = projects.filter((p) => divisiOf(p) === 'Gov').length;
+  const totalPolCount = projects.filter((p) => divisiOf(p) === 'Pol').length;
 
   return (
     <div>
@@ -271,14 +274,14 @@ function PekerjaanMenangContent() {
               onClick={() => setActiveTabDivisi('Gov')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <IconGov size={15} /> Government (Gov) ({projects.filter((p) => p.divisi_substansi === 'Gov' || p.kategori_project === 'Gov').length})
+              <IconGov size={15} /> Government (Gov) ({projects.filter((p) => divisiOf(p) === 'Gov').length})
             </button>
             <button
               className={`btn-primary ${activeTabDivisi === 'Pol' ? '' : 'btn-secondary'}`}
               onClick={() => setActiveTabDivisi('Pol')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <IconPol size={15} /> Political (Pol) ({projects.filter((p) => p.divisi_substansi === 'Pol' || p.kategori_project === 'Pol').length})
+              <IconPol size={15} /> Political (Pol) ({projects.filter((p) => divisiOf(p) === 'Pol').length})
             </button>
           </div>
 

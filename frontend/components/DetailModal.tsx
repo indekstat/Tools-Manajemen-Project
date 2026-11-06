@@ -254,7 +254,7 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
   };
 
   const EDIT_FIELDS = [
-    'nama_pekerjaan', 'nilai_kontrak', 'status_project', 'jenis_mekanisme', 'divisi_substansi', 'lokasi',
+    'nama_pekerjaan', 'nilai_kontrak', 'status_project', 'jenis_mekanisme', 'kategori_project', 'lokasi',
     'metode_pekerjaan', 'jenis_pekerjaan', 'pemberi_kerja', 'satuan_kerja', 'deadline_pengumuman', 'peringkat',
     'pic', 'pic_ustek', 'tim_ustek', 'tanggal_mulai_spk', 'tanggal_spk_berakhir', 'url_ustek', 'url_rab', 'url_ta',
     'link_spk', 'link_bast', 'link_referensi', 'keterangan_tender',
@@ -381,8 +381,8 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
         <div className="modal-header">
           <div>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-              <span className={`badge ${project.divisi_substansi === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
-                {project.divisi_substansi || project.kategori_project || 'Gov'}
+              <span className={`badge ${project.kategori_project === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
+                {project.kategori_project || 'Gov'}
               </span>
               <span className="badge" style={{ background: '#f1f5f9', color: '#334155' }}>
                 Mekanisme: {project.jenis_mekanisme || 'Bidding'}
@@ -468,7 +468,7 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                   ['nilai_kontrak', 'Nilai Pekerjaan (Kontrak Awal)', 'number'],
                   ['status_project', 'Status Bidding', ['Ongoing', 'Menang', 'Kalah', 'Batal', 'Tidak Memenuhi Ambang Batas']],
                   ['jenis_mekanisme', 'Mekanisme', ['Bidding', 'PL']],
-                  ['divisi_substansi', 'Divisi Substansi', ['Gov', 'Pol']],
+                  ['kategori_project', 'Divisi / Kategori', ['Gov', 'Pol']],
                   ['lokasi', 'Lokasi', ['Pusat', 'Cabang Jatim', 'Cabang Jateng']],
                   ['metode_pekerjaan', 'Metode Pekerjaan', 'text'],
                   ['jenis_pekerjaan', 'Jenis Pekerjaan', 'text'],

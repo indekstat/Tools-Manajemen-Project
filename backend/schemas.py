@@ -182,7 +182,6 @@ class ProjectBase(BaseModel):
     status_project: Optional[str] = "Ongoing"
     lokasi: Optional[str] = "Pusat"
     kategori_project: Optional[str] = "Gov"
-    divisi_substansi: Optional[str] = "Gov"
     pemberi_kerja: Optional[str] = None
     satuan_kerja: Optional[str] = None
     pic: Optional[str] = None
@@ -232,7 +231,6 @@ class ProjectUpdate(BaseModel):
     status_project: Optional[str] = None
     lokasi: Optional[str] = None
     kategori_project: Optional[str] = None
-    divisi_substansi: Optional[str] = None
     pemberi_kerja: Optional[str] = None
     satuan_kerja: Optional[str] = None
     pic: Optional[str] = None

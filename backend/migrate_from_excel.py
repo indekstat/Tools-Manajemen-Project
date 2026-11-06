@@ -110,7 +110,6 @@ def run_migration():
 
         lokasi = clean_str(row[h_b.get('Lokasi')]) or "Pusat"
         kategori_project = clean_str(row[h_b.get('Kategori Project')]) or "Gov"
-        divisi_substansi = kategori_project
 
         deadline_pengumuman = parse_date(row[h_b.get('Deadline/Pengumuman')])
         keterangan_tender = clean_str(row[h_b.get('Keterangan Tender')])
@@ -143,7 +142,6 @@ def run_migration():
             status_project=status_project,
             lokasi=lokasi,
             kategori_project=kategori_project,
-            divisi_substansi=divisi_substansi,
             deadline_pengumuman=deadline_pengumuman,
             keterangan_tender=keterangan_tender,
             peringkat=peringkat,

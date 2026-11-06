@@ -23,8 +23,7 @@ class Project(Base):
     status = Column(String)
     status_project = Column(String, default="Ongoing") # Ongoing, Menang, Kalah, Batal, Tidak Memenuhi Ambang Batas
     lokasi = Column(String, default="Pusat") # Pusat, Cabang Jatim, Cabang Jateng
-    kategori_project = Column(String) # Gov, Pol
-    divisi_substansi = Column(String) # Gov, Pol
+    kategori_project = Column(String) # Gov, Pol; satu-satunya penentu divisi project (juga untuk hak akses)
     pemberi_kerja = Column(String)
     satuan_kerja = Column(String)
     pic = Column(String)

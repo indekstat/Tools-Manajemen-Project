@@ -225,7 +225,6 @@ const getTahapanRank = (key: string) => {
       nilai_kontrak: parseFloat(nilaiKontrak) || 0,
       lokasi: lokasi,
       kategori_project: kategoriProject,
-      divisi_substansi: kategoriProject,
       metode_pekerjaan: metodePekerjaan,
       jenis_pekerjaan: jenisPekerjaan,
       keterangan_tender: keteranganTender,
@@ -1045,8 +1044,8 @@ const getTahapanRank = (key: string) => {
                                               </td>
                                               <td>{p.lokasi || 'Pusat'}</td>
                                               <td>
-                                                <span className={`badge ${p.kategori_project === 'Gov' || p.divisi_substansi === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
-                                                  {p.kategori_project || p.divisi_substansi || 'Gov'}
+                                                <span className={`badge ${p.kategori_project === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
+                                                  {p.kategori_project || 'Gov'}
                                                 </span>
                                               </td>
                                               <td>
@@ -1314,8 +1313,8 @@ const getTahapanRank = (key: string) => {
                           </td>
                           <td>{p.lokasi || 'Pusat'}</td>
                           <td>
-                            <span className={`badge ${p.kategori_project === 'Gov' || p.divisi_substansi === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
-                              {p.kategori_project || p.divisi_substansi || 'Gov'}
+                            <span className={`badge ${p.kategori_project === 'Gov' ? 'badge-gov' : 'badge-pol'}`}>
+                              {p.kategori_project || 'Gov'}
                             </span>
                           </td>
                           <td>

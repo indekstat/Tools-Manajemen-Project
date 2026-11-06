@@ -21,7 +21,7 @@ export default function UstekGovPage() {
           // Filter khusus divisi Gov, tahapan Ustek, dan status bidding Ongoing
           const govProjects = data.filter((p) => 
             (p.status_project === 'Ongoing' || !p.status_project) &&
-            (p.divisi_substansi === 'Gov' || p.kategori_project === 'Gov') &&
+            p.kategori_project === 'Gov' &&
             (p.tahapan === 'Penawaran' || p.tahapan === 'Upload Penawaran' || p.tahapan === 'Penyusunan Ustek' || p.tahapan === 'Upload Ustek')
           );
           setProjects(govProjects);

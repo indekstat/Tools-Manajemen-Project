@@ -154,6 +154,13 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
     .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
   
 
+  const jumlahTermin = (project.billings || []).length;
+  const terminSudahDitagih = (project.billings || []).filter((b: any) => b.status && b.status !== 'Belum ditagih').length;
+  const fmtTgl = (d: string) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  const spkTerisi = !!(project.tanggal_mulai_spk || project.tanggal_spk_berakhir);
+  const perluPeringatanHapus = jumlahTermin > 0 || spkTerisi;
+  const totalNominalTermin = (project.billings || []).reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
+
   const isPaidInFull = totalPaid >= (project.nilai_project_deal || project.nilai_kontrak || 0) && (project.nilai_project_deal || project.nilai_kontrak || 0) > 0;
   const hasAllDocs = hasDokumenLengkap(project);
   const isProjectSelesai = isProjectSelesaiAkhir(project);
@@ -1176,7 +1183,7 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               <button className="btn-primary btn-secondary" onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '0.65rem' }}>Batal</button>
-              <button className="btn-primary" onClick={executeDelete} style={{ flex: 1, padding: '0.65rem', background: '#dc2626' }}>Ya, Hapus</button>
+              <button className="btn-primary" onClick={executeDelete} style={{ flex: 1, padding: '0.65rem', background: '#dc2626' }}>{perluPeringatanHapus ? 'Ya, Tetap Hapus' : 'Ya, Hapus'}</button>
             </div>
           </div>
         </div>
@@ -1193,8 +1200,25 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
             </div>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-main)' }}>Hapus Pekerjaan</h3>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-              Apakah Anda yakin ingin menghapus <strong>"{project.nama_pekerjaan}"</strong> beserta seluruh tahapan dan termin penagihannya? Tindakan ini tidak dapat dibatalkan.
+              Apakah Anda yakin ingin menghapus <strong>"{project.nama_pekerjaan}"</strong> beserta seluruh tahapan dan termin penagihannya?
             </p>
+            {perluPeringatanHapus && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1.25rem', textAlign: 'left', fontSize: '0.8rem', color: '#92400e', lineHeight: 1.5 }}>
+                <strong>Peringatan: project ini sudah memiliki data {jumlahTermin > 0 && spkTerisi ? 'penagihan dan SPK' : jumlahTermin > 0 ? 'penagihan' : 'SPK'}.</strong>
+                {jumlahTermin > 0 && (
+                  <div>
+                    {jumlahTermin} termin (total Rp {totalNominalTermin.toLocaleString('id-ID')})
+                    {terminSudahDitagih > 0 ? `, ${terminSudahDitagih} di antaranya sudah ditagih/dibayarkan.` : ', belum ada yang ditagih.'}
+                  </div>
+                )}
+                {spkTerisi && (
+                  <div>
+                    SPK: {project.tanggal_mulai_spk ? fmtTgl(project.tanggal_mulai_spk) : '–'} s/d {project.tanggal_spk_berakhir ? fmtTgl(project.tanggal_spk_berakhir) : '–'}
+                  </div>
+                )}
+                <div>Yakin mau hapus? Datanya ikut terhapus.</div>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               <button className="btn-primary btn-secondary" onClick={() => setShowDeleteProject(false)} style={{ flex: 1, padding: '0.65rem' }}>Batal</button>
               <button className="btn-primary" onClick={handleDeleteProject} style={{ flex: 1, padding: '0.65rem', background: '#dc2626' }}>Ya, Hapus</button>

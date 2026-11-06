@@ -154,6 +154,13 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
     .reduce((sum: number, b: any) => sum + (b.nominal || 0), 0);
   
 
+  // Riwayat tahapan diurutkan berdasarkan tanggal (terlama ke terbaru); tanpa tanggal di akhir, tie-break pakai id.
+  const stagesTerurut = [...(project.stages || [])].sort((a: any, b: any) => {
+    if (!a.tanggal && !b.tanggal) return a.id - b.id;
+    if (!a.tanggal) return 1;
+    if (!b.tanggal) return -1;
+    return a.tanggal.localeCompare(b.tanggal) || a.id - b.id;
+  });
   const jumlahTermin = (project.billings || []).length;
   const terminSudahDitagih = (project.billings || []).filter((b: any) => b.status && b.status !== 'Belum ditagih').length;
   const fmtTgl = (d: string) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -872,7 +879,7 @@ export default function DetailModal({ project: projectProp, onClose, onRefresh, 
                       </td>
                     </tr>
                   ) : (
-                    project.stages.map((st: any, idx: number) => (
+                    stagesTerurut.map((st: any, idx: number) => (
                       editStage && editStage.id === st.id ? (
                         <tr key={st.id}>
                           <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>{idx + 1}.</td>

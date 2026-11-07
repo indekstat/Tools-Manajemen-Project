@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 import auth
 import models
+from access import project_or_404, visible_project_ids, live, soft_delete
 from database import get_db, SessionLocal
 
 router = APIRouter(tags=["Tenaga Ahli"])
@@ -109,28 +110,29 @@ def _penugasan_out(a: models.TAPenugasan) -> PenugasanResponse:
         kode_ta=a.tenaga_ahli.kode if a.tenaga_ahli else None,
     )
 
-def _ta_out(t: models.TenagaAhli) -> TAResponse:
+def _ta_out(t: models.TenagaAhli, visible=None) -> TAResponse:
+    """visible = himpunan id project yang boleh dilihat user (None = semua)."""
     return TAResponse(
         id=t.id, kode=t.kode, nama=t.nama, kategori_bidang=t.kategori_bidang, status=t.status, no_hp=t.no_hp,
         bidang_keahlian=t.bidang_keahlian, domisili=t.domisili, pengalaman_tahun=t.pengalaman_tahun,
         kategori_pengalaman=t.kategori_pengalaman, prioritas=t.prioritas, sumber_data=t.sumber_data, catatan=t.catatan,
         pendidikan=[PendidikanResponse.model_validate(x) for x in sorted(t.pendidikan, key=lambda e: e.id)],
         sertifikasi=[SertifikasiResponse.model_validate(x) for x in sorted(t.sertifikasi, key=lambda e: e.id)],
-        penugasan=[_penugasan_out(a) for a in sorted(t.penugasan, key=lambda e: e.id)],
+        penugasan=[_penugasan_out(a) for a in sorted(t.penugasan, key=lambda e: e.id)
+                   if a.project and a.project.deleted_at is None and (visible is None or a.project_id in visible)],
     )
 
 def _get_ta(db: Session, ta_id: int) -> models.TenagaAhli:
-    t = db.query(models.TenagaAhli).filter(models.TenagaAhli.id == ta_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="Tenaga Ahli not found")
-    return t
+    return live(db, models.TenagaAhli, ta_id, "Tenaga Ahli not found")
 
 
 # ----------------- TENAGA AHLI -----------------
 
 @router.get("/tenaga-ahli", response_model=List[TAResponse])
 def list_tenaga_ahli(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    return [_ta_out(t) for t in db.query(models.TenagaAhli).order_by(models.TenagaAhli.id).all()]
+    visible = {r[0] for r in visible_project_ids(db, current_user)}
+    rows = db.query(models.TenagaAhli).filter(models.TenagaAhli.deleted_at == None).order_by(models.TenagaAhli.id).all()
+    return [_ta_out(t, visible) for t in rows]
 
 @router.post("/tenaga-ahli", response_model=TAResponse)
 def create_tenaga_ahli(payload: TACreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
@@ -156,7 +158,7 @@ def update_tenaga_ahli(ta_id: int, payload: TAUpdate, db: Session = Depends(get_
 
 @router.delete("/tenaga-ahli/{ta_id}")
 def delete_tenaga_ahli(ta_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
-    db.delete(_get_ta(db, ta_id))
+    soft_delete(_get_ta(db, ta_id), current_user)  # pendidikan/sertifikasi/penugasan ikut tersembunyi, tidak dibuang
     db.commit()
     return {"message": "Deleted"}
 
@@ -164,9 +166,8 @@ def delete_tenaga_ahli(ta_id: int, db: Session = Depends(get_db), current_user: 
 # ----------------- PENDIDIKAN & SERTIFIKASI (one-to-many) -----------------
 
 def _get_child(db: Session, model, cid: int):
-    e = db.query(model).filter(model.id == cid).first()
-    if not e:
-        raise HTTPException(status_code=404, detail="Data not found")
+    e = live(db, model, cid, "Data not found")
+    live(db, models.TenagaAhli, e.ta_id, "Data not found")  # induknya TA harus masih aktif
     return e
 
 @router.post("/tenaga-ahli/{ta_id}/pendidikan", response_model=PendidikanResponse)
@@ -186,7 +187,7 @@ def update_pendidikan(pid: int, payload: PendidikanBase, db: Session = Depends(g
 
 @router.delete("/ta-pendidikan/{pid}")
 def delete_pendidikan(pid: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
-    db.delete(_get_child(db, models.TAPendidikan, pid)); db.commit()
+    soft_delete(_get_child(db, models.TAPendidikan, pid), current_user); db.commit()
     return {"message": "Deleted"}
 
 @router.post("/tenaga-ahli/{ta_id}/sertifikasi", response_model=SertifikasiResponse)
@@ -206,7 +207,7 @@ def update_sertifikasi(sid: int, payload: SertifikasiBase, db: Session = Depends
 
 @router.delete("/ta-sertifikasi/{sid}")
 def delete_sertifikasi(sid: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
-    db.delete(_get_child(db, models.TASertifikasi, sid)); db.commit()
+    soft_delete(_get_child(db, models.TASertifikasi, sid), current_user); db.commit()
     return {"message": "Deleted"}
 
 
@@ -214,21 +215,30 @@ def delete_sertifikasi(sid: int, db: Session = Depends(get_db), current_user: mo
 
 @router.get("/ta-penugasan", response_model=List[PenugasanResponse])
 def list_penugasan(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    return [_penugasan_out(a) for a in db.query(models.TAPenugasan).order_by(models.TAPenugasan.id).all()]
+    rows = (db.query(models.TAPenugasan)
+            .join(models.TenagaAhli, models.TenagaAhli.id == models.TAPenugasan.ta_id)
+            .filter(models.TAPenugasan.deleted_at == None, models.TenagaAhli.deleted_at == None,
+                    models.TAPenugasan.project_id.in_(visible_project_ids(db, current_user)))
+            .order_by(models.TAPenugasan.id).all())
+    return [_penugasan_out(a) for a in rows]
 
 @router.get("/projects/{project_id}/tenaga-ahli", response_model=List[PenugasanResponse])
 def list_project_ta(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    rows = db.query(models.TAPenugasan).filter(models.TAPenugasan.project_id == project_id).order_by(models.TAPenugasan.id).all()
+    project_or_404(db, project_id, current_user)
+    rows = (db.query(models.TAPenugasan)
+            .join(models.TenagaAhli, models.TenagaAhli.id == models.TAPenugasan.ta_id)
+            .filter(models.TAPenugasan.project_id == project_id, models.TAPenugasan.deleted_at == None,
+                    models.TenagaAhli.deleted_at == None)
+            .order_by(models.TAPenugasan.id).all())
     return [_penugasan_out(a) for a in rows]
 
 @router.post("/tenaga-ahli/{ta_id}/penugasan", response_model=PenugasanResponse)
 def assign_ta(ta_id: int, payload: PenugasanBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
     _get_ta(db, ta_id)
-    if not db.query(models.Project).filter(models.Project.id == payload.project_id, models.Project.deleted_at == None).first():
-        raise HTTPException(status_code=404, detail="Project not found")
+    project_or_404(db, payload.project_id, current_user, write=True)
     dup = db.query(models.TAPenugasan).filter(
         models.TAPenugasan.ta_id == ta_id, models.TAPenugasan.project_id == payload.project_id,
-        models.TAPenugasan.status != "Batal").first()
+        models.TAPenugasan.deleted_at == None, models.TAPenugasan.status != "Batal").first()
     if dup:
         raise HTTPException(status_code=409, detail="TA sudah ditugaskan di project ini")
     a = models.TAPenugasan(ta_id=ta_id, **payload.model_dump())
@@ -238,6 +248,7 @@ def assign_ta(ta_id: int, payload: PenugasanBase, db: Session = Depends(get_db),
 @router.put("/ta-penugasan/{aid}", response_model=PenugasanResponse)
 def update_penugasan(aid: int, payload: PenugasanUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
     a = _get_child(db, models.TAPenugasan, aid)
+    project_or_404(db, a.project_id, current_user, write=True)
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(a, k, v)
     db.commit(); db.refresh(a)
@@ -245,7 +256,9 @@ def update_penugasan(aid: int, payload: PenugasanUpdate, db: Session = Depends(g
 
 @router.delete("/ta-penugasan/{aid}")
 def delete_penugasan(aid: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(EDIT_ROLES))):
-    db.delete(_get_child(db, models.TAPenugasan, aid)); db.commit()
+    a = _get_child(db, models.TAPenugasan, aid)
+    project_or_404(db, a.project_id, current_user, write=True)
+    soft_delete(a, current_user); db.commit()
     return {"message": "Deleted"}
 
 

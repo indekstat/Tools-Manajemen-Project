@@ -7,11 +7,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from database import engine, Base, get_db
+from database import engine, Base, get_db, SessionLocal
 import models
 import schemas
 import auth
 import tenaga_ahli
+from access import project_or_404, visible_project_ids, live, soft_delete
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -39,7 +40,8 @@ def ensure_columns():
             conn.commit()
         except Exception:
             pass
-        for tbl in ("projects", "billings"):
+        for tbl in ("projects", "billings", "project_stages", "bidding_stages", "project_dashboards",
+                    "users", "tenaga_ahli", "ta_pendidikan", "ta_sertifikasi", "ta_penugasan"):
             for col, typ in [("deleted_at", "DATETIME"), ("deleted_by", "VARCHAR")]:
                 try:
                     conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col} {typ}"))
@@ -79,6 +81,11 @@ app.include_router(tenaga_ahli.router)
 @app.on_event("startup")
 def startup_event():
     tenaga_ahli.seed_if_empty()
+    db = SessionLocal()
+    try:
+        ensure_standard_bidding_stages(db, db.query(models.Project).filter(models.Project.deleted_at == None).all())
+    finally:
+        db.close()
 
 app.add_middleware(
     CORSMiddleware,
@@ -199,12 +206,18 @@ def hris_login(payload: schemas.AuthLoginRequest, db: Session = Depends(get_db))
                 # Cocokkan persis pada username; pencocokan nama (ILIKE) bisa menimpa akun orang lain.
                 user = db.query(models.User).filter(models.User.username == clean_user).first()
 
+            if user and user.deleted_at:
+                raise HTTPException(status_code=403, detail="Akun ini dinonaktifkan. Hubungi Superadmin.")
+
             # If alias user exists, delete duplicate alias rows BEFORE updating username
             if clean_user in alif_aliases and user:
-                db.query(models.User).filter(
+                for dup in db.query(models.User).filter(
                     models.User.username.in_(alif_aliases),
-                    models.User.id != user.id
-                ).delete(synchronize_session=False)
+                    models.User.id != user.id,
+                    models.User.deleted_at == None
+                ).all():
+                    dup.username = f"{dup.username}#dup{dup.id}"  # username unik: lepaskan nama alias
+                    soft_delete(dup, user)
                 db.commit()
 
             if not user:
@@ -330,7 +343,7 @@ PNC_CACHE_TTL = 900  # 15 minutes cache
 LATEST_PNC_TOKEN = None
 
 def get_db_users_as_auth_detail(db: Session) -> List[schemas.AuthUserDetail]:
-    db_users = db.query(models.User).all()
+    db_users = db.query(models.User).filter(models.User.deleted_at == None).all()
     dedup_map = {}
     for u in db_users:
         clean_name = (u.nama or u.username).strip().lower()
@@ -466,6 +479,8 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                         nama=name
                     )
                     db.add(db_user)
+                elif db_user.deleted_at:
+                    pass  # akun dinonaktifkan lokal: jangan diubah/diaktifkan lagi oleh sinkronisasi HRIS
                 else:
                     db_user.username = target_u
                     db_user.nama = name
@@ -540,10 +555,10 @@ def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
 
 @app.get("/users", response_model=List[schemas.UserResponse])
 def get_users(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    users = db.query(models.User).all()
+    users = db.query(models.User).filter(models.User.deleted_at == None).all()
     if not users:
         fetch_pnc_employees(db)
-        users = db.query(models.User).all()
+        users = db.query(models.User).filter(models.User.deleted_at == None).all()
     return users
 
 @app.post("/users", response_model=schemas.UserResponse)
@@ -558,9 +573,7 @@ def require_superadmin(current_user: models.User = Depends(auth.get_current_user
 
 @app.put("/users/{user_id}", response_model=schemas.UserResponse)
 def update_user(user_id: int, user_update: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
+    db_user = live(db, models.User, user_id, "User not found")
     for key, value in user_update.model_dump(exclude_unset=True).items():
         setattr(db_user, key, value)
     db.commit()
@@ -569,35 +582,75 @@ def update_user(user_id: int, user_update: schemas.UserBase, db: Session = Depen
 
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
+    db_user = live(db, models.User, user_id, "User not found")
     if db_user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Tidak bisa menghapus akun sendiri")
-    db.delete(db_user)
+    soft_delete(db_user, current_user)  # dinonaktifkan: tidak bisa login, bisa dipulihkan Superadmin
     db.commit()
     return {"message": "User deleted successfully"}
 
 @app.post("/users/bulk-delete")
 def bulk_delete_users(request: schemas.BulkDeleteRequest, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
     ids = [i for i in request.ids if i != current_user.id]  # akun sendiri tidak ikut terhapus
-    deleted_count = db.query(models.User).filter(models.User.id.in_(ids)).delete(synchronize_session=False)
+    targets = db.query(models.User).filter(models.User.id.in_(ids), models.User.deleted_at == None).all()
+    for u in targets:
+        soft_delete(u, current_user)
+    deleted_count = len(targets)
     db.commit()
     return {"message": f"Successfully deleted {deleted_count} users", "count": deleted_count}
 
 
+# ----------------- TEMPAT SAMPAH (daftar terhapus & pemulihan, khusus Superadmin) -----------------
+
+TRASH_MODELS = {
+    "project": (models.Project, "nama_pekerjaan"),
+    "billing": (models.Billing, "nama"),
+    "stage": (models.ProjectStage, "nama_tahapan"),
+    "bidding-stage": (models.BiddingStage, "nama_tahapan"),
+    "dashboard": (models.ProjectDashboard, "url_dashboard"),
+    "user": (models.User, "username"),
+    "tenaga-ahli": (models.TenagaAhli, "nama"),
+    "ta-pendidikan": (models.TAPendidikan, "jurusan"),
+    "ta-sertifikasi": (models.TASertifikasi, "nama_sertifikasi"),
+    "ta-penugasan": (models.TAPenugasan, "posisi"),
+}
+
+def _trash_model(kind: str):
+    if kind not in TRASH_MODELS:
+        raise HTTPException(status_code=404, detail=f"Jenis tidak dikenal. Pilihan: {', '.join(TRASH_MODELS)}")
+    return TRASH_MODELS[kind]
+
+@app.get("/trash/{kind}")
+def list_trash(kind: str, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
+    model, label = _trash_model(kind)
+    rows = db.query(model).filter(model.deleted_at != None).order_by(model.deleted_at.desc()).all()
+    return [{"id": r.id, "label": getattr(r, label, None), "deleted_at": r.deleted_at, "deleted_by": r.deleted_by} for r in rows]
+
+@app.post("/trash/{kind}/{row_id}/restore")
+def restore_trash(kind: str, row_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
+    model, _ = _trash_model(kind)
+    row = db.query(model).filter(model.id == row_id, model.deleted_at != None).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Data terhapus tidak ditemukan")
+    row.deleted_at = None
+    row.deleted_by = None
+    db.commit()
+    return {"message": "Data dipulihkan"}
+
+
 # ----------------- PROJECTS -----------------
 
-@app.get("/projects", response_model=List[schemas.ProjectResponse])
-def get_projects(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # Gov/Pol can only see their own projects, unless Superadmin/IR/Finance/Viewer
-    query = db.query(models.Project).filter(models.Project.deleted_at == None)
-    if current_user.role in ["Gov", "Pol"]:
-        query = query.filter(models.Project.kategori_project == current_user.role)
-    projects = query.all()
+STANDARD_BIDDING_STAGES = ["Upload PQ", "Evaluasi PQ", "Pembuktian", "Upload Penawaran", "Menunggu Pengumuman"]
 
-    # Ensure all Bidding projects have standard 4 stage records created
-    standard_stages = ["Upload PQ", "Evaluasi PQ", "Pembuktian", "Upload Penawaran", "Menunggu Pengumuman"]
+class _SystemUser:
+    username = "system"
+
+SYSTEM_USER = _SystemUser()
+
+def ensure_standard_bidding_stages(db: Session, projects) -> bool:
+    """Pastikan tiap project Bidding punya tahapan standar, dan rapikan nama tahapan lama.
+    Dipanggil saat startup dan saat project dibuat/diubah, bukan saat GET (GET hanya membaca)."""
+    standard_stages = STANDARD_BIDDING_STAGES
     
     def get_initial_stage_status(stage_name: str, p_tahapan: str, p_status: str) -> str:
         if (p_status or "").strip().lower() == "menang":
@@ -641,7 +694,7 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
                         legacy_stages = legacy_stages[1:]
                         modified = True
                     for leg in legacy_stages:
-                        db.delete(leg)
+                        soft_delete(leg, SYSTEM_USER)
                         modified = True
 
             existing_stage_names = [st.nama_tahapan for st in p.bidding_stages] if p.bidding_stages else []
@@ -662,10 +715,15 @@ def get_projects(db: Session = Depends(get_db), current_user: models.User = Depe
 
     if modified:
         db.commit()
-        for p in projects:
-            db.refresh(p)
+    return modified
 
-    return projects
+@app.get("/projects", response_model=List[schemas.ProjectResponse])
+def get_projects(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # Gov/Pol can only see their own projects, unless Superadmin/IR/Finance/Viewer
+    query = db.query(models.Project).filter(models.Project.deleted_at == None)
+    if current_user.role in ["Gov", "Pol"]:
+        query = query.filter(models.Project.kategori_project == current_user.role)
+    return query.all()  # murni baca: tahapan standar disiapkan saat startup / create / update
 
 @app.post("/projects", response_model=schemas.ProjectResponse)
 def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
@@ -747,6 +805,7 @@ def update_project(project_id: int, project: schemas.ProjectUpdate, db: Session 
         db_project.status_selesai_substansi = True if (ustek_done and rab_done and ta_done) else False
 
     db.commit()
+    ensure_standard_bidding_stages(db, [db_project])
     db.refresh(db_project)
     return db_project
 
@@ -784,10 +843,12 @@ def restore_project(project_id: int, db: Session = Depends(get_db), current_user
 
 @app.get("/projects/{project_id}/stages", response_model=List[schemas.ProjectStageResponse])
 def get_project_stages(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    return db.query(models.ProjectStage).filter(models.ProjectStage.project_id == project_id).all()
+    project_or_404(db, project_id, current_user)
+    return db.query(models.ProjectStage).filter(models.ProjectStage.project_id == project_id, models.ProjectStage.deleted_at == None).all()
 
 @app.post("/projects/{project_id}/stages", response_model=schemas.ProjectStageResponse)
 def create_project_stage(project_id: int, stage: schemas.ProjectStageBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    project_or_404(db, project_id, current_user, write=True)
     db_stage = models.ProjectStage(**stage.model_dump(), project_id=project_id)
     db.add(db_stage)
     db.commit()
@@ -796,9 +857,8 @@ def create_project_stage(project_id: int, stage: schemas.ProjectStageBase, db: S
 
 @app.put("/stages/{stage_id}", response_model=schemas.ProjectStageResponse)
 def update_stage(stage_id: int, stage: schemas.ProjectStageUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    db_stage = db.query(models.ProjectStage).filter(models.ProjectStage.id == stage_id).first()
-    if not db_stage:
-        raise HTTPException(status_code=404, detail="Stage not found")
+    db_stage = live(db, models.ProjectStage, stage_id, "Stage not found")
+    project_or_404(db, db_stage.project_id, current_user, write=True)
     for key, value in stage.model_dump(exclude_unset=True).items():
         if value is None and key in ("nama_tahapan", "status", "is_meeting"):
             continue
@@ -811,10 +871,9 @@ def update_stage(stage_id: int, stage: schemas.ProjectStageUpdate, db: Session =
 
 @app.delete("/stages/{stage_id}")
 def delete_stage(stage_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    stage = db.query(models.ProjectStage).filter(models.ProjectStage.id == stage_id).first()
-    if not stage:
-        raise HTTPException(status_code=404, detail="Stage not found")
-    db.delete(stage)
+    stage = live(db, models.ProjectStage, stage_id, "Stage not found")
+    project_or_404(db, stage.project_id, current_user, write=True)
+    soft_delete(stage, current_user)
     db.commit()
     return {"message": "Stage deleted successfully"}
 
@@ -822,10 +881,12 @@ def delete_stage(stage_id: int, db: Session = Depends(get_db), current_user: mod
 
 @app.get("/projects/{project_id}/billings", response_model=List[schemas.BillingResponse])
 def get_project_billings(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    project_or_404(db, project_id, current_user)
     return db.query(models.Billing).filter(models.Billing.project_id == project_id, models.Billing.deleted_at == None).all()
 
 @app.post("/projects/{project_id}/billings", response_model=schemas.BillingResponse)
 def create_project_billing(project_id: int, billing: schemas.BillingBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Finance"]))):
+    project_or_404(db, project_id, current_user, write=True)
     db_billing = models.Billing(**billing.model_dump(), project_id=project_id)
     db.add(db_billing)
     db.commit()
@@ -834,6 +895,7 @@ def create_project_billing(project_id: int, billing: schemas.BillingBase, db: Se
 
 @app.post("/projects/{project_id}/billings/bulk", response_model=List[schemas.BillingResponse])
 def create_project_billings_bulk(project_id: int, payload: schemas.BillingBulkCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Finance"]))):
+    project_or_404(db, project_id, current_user, write=True)
     if payload.jumlah < 1 or payload.jumlah > 50:
         raise HTTPException(status_code=400, detail="Jumlah termin harus 1-50")
     existing = db.query(models.Billing).filter(models.Billing.project_id == project_id, models.Billing.deleted_at == None).count()
@@ -854,7 +916,8 @@ def update_billing(billing_id: int, billing: schemas.BillingUpdate, db: Session 
     db_billing = db.query(models.Billing).filter(models.Billing.id == billing_id, models.Billing.deleted_at == None).first()
     if not db_billing:
         raise HTTPException(status_code=404, detail="Billing not found")
-    
+    project_or_404(db, db_billing.project_id, current_user, write=True)
+
     for key, value in billing.model_dump(exclude_unset=True).items():
         if value is not None or key in ("tanggal_penagihan", "tanggal_uang_masuk", "link_bast", "link_dokumen_penagihan", "catatan"):
             setattr(db_billing, key, value)
@@ -868,8 +931,8 @@ def delete_billing(billing_id: int, db: Session = Depends(get_db), current_user:
     billing = db.query(models.Billing).filter(models.Billing.id == billing_id, models.Billing.deleted_at == None).first()
     if not billing:
         raise HTTPException(status_code=404, detail="Billing not found")
-    billing.deleted_at = datetime.datetime.utcnow()
-    billing.deleted_by = current_user.username
+    project_or_404(db, billing.project_id, current_user, write=True)
+    soft_delete(billing, current_user)
     db.commit()
     return {"message": "Billing deleted successfully"}
 
@@ -877,7 +940,10 @@ def delete_billing(billing_id: int, db: Session = Depends(get_db), current_user:
 
 @app.get("/dashboards", response_model=List[schemas.ProjectDashboardResponse])
 def get_project_dashboards(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    return db.query(models.ProjectDashboard).all()
+    return db.query(models.ProjectDashboard).filter(
+        models.ProjectDashboard.deleted_at == None,
+        models.ProjectDashboard.project_id.in_(visible_project_ids(db, current_user)),
+    ).all()
 
 @app.post("/dashboards", response_model=schemas.ProjectDashboardResponse)
 def create_project_dashboard(dashboard: schemas.ProjectDashboardCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Systech"]))):
@@ -885,6 +951,7 @@ def create_project_dashboard(dashboard: schemas.ProjectDashboardCreate, db: Sess
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    project_or_404(db, dashboard.project_id, current_user, write=True)
     db_dashboard = models.ProjectDashboard(
         project_id=dashboard.project_id,
         url_dashboard=dashboard.url_dashboard,
@@ -897,9 +964,7 @@ def create_project_dashboard(dashboard: schemas.ProjectDashboardCreate, db: Sess
 
 @app.put("/dashboards/{dashboard_id}", response_model=schemas.ProjectDashboardResponse)
 def update_project_dashboard(dashboard_id: int, dashboard: schemas.ProjectDashboardBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Systech"]))):
-    db_dashboard = db.query(models.ProjectDashboard).filter(models.ProjectDashboard.id == dashboard_id).first()
-    if not db_dashboard:
-        raise HTTPException(status_code=404, detail="Dashboard not found")
+    db_dashboard = live(db, models.ProjectDashboard, dashboard_id, "Dashboard not found")
     
     for key, value in dashboard.model_dump(exclude_unset=True).items():
         setattr(db_dashboard, key, value)
@@ -910,10 +975,8 @@ def update_project_dashboard(dashboard_id: int, dashboard: schemas.ProjectDashbo
 
 @app.delete("/dashboards/{dashboard_id}")
 def delete_project_dashboard(dashboard_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Systech"]))):
-    db_dashboard = db.query(models.ProjectDashboard).filter(models.ProjectDashboard.id == dashboard_id).first()
-    if not db_dashboard:
-        raise HTTPException(status_code=404, detail="Dashboard not found")
-    db.delete(db_dashboard)
+    db_dashboard = live(db, models.ProjectDashboard, dashboard_id, "Dashboard not found")
+    soft_delete(db_dashboard, current_user)
     db.commit()
     return {"message": "Dashboard deleted successfully"}
 
@@ -921,12 +984,14 @@ def delete_project_dashboard(dashboard_id: int, db: Session = Depends(get_db), c
 
 @app.get("/projects/{project_id}/bidding-stages", response_model=List[schemas.BiddingStageResponse])
 def get_bidding_stages(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    return db.query(models.BiddingStage).filter(models.BiddingStage.project_id == project_id).all()
+    project_or_404(db, project_id, current_user)
+    return db.query(models.BiddingStage).filter(models.BiddingStage.project_id == project_id, models.BiddingStage.deleted_at == None).all()
 
 @app.post("/projects/{project_id}/bidding-stages", response_model=schemas.BiddingStageResponse)
 def create_bidding_stage(project_id: int, stage: schemas.BiddingStageBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.role == "Viewer":
         raise HTTPException(status_code=403, detail="Viewers cannot create bidding stages")
+    project_or_404(db, project_id, current_user, write=True)
     db_stage = models.BiddingStage(**stage.model_dump(), project_id=project_id)
     db.add(db_stage)
     db.commit()
@@ -937,9 +1002,8 @@ def create_bidding_stage(project_id: int, stage: schemas.BiddingStageBase, db: S
 def update_bidding_stage(stage_id: int, stage: schemas.BiddingStageUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.role == "Viewer":
         raise HTTPException(status_code=403, detail="Viewers cannot update bidding stages")
-    db_stage = db.query(models.BiddingStage).filter(models.BiddingStage.id == stage_id).first()
-    if not db_stage:
-        raise HTTPException(status_code=404, detail="Bidding Stage not found")
+    db_stage = live(db, models.BiddingStage, stage_id, "Bidding Stage not found")
+    project_or_404(db, db_stage.project_id, current_user, write=True)
     
     for key, value in stage.model_dump(exclude_unset=True).items():
         setattr(db_stage, key, value)
@@ -952,6 +1016,7 @@ def update_bidding_stage(stage_id: int, stage: schemas.BiddingStageUpdate, db: S
     if project:
         active = db.query(models.BiddingStage).filter(
             models.BiddingStage.project_id == project.id,
+            models.BiddingStage.deleted_at == None,
             models.BiddingStage.status == "Onprogress"
         ).first()
         if active:
@@ -966,10 +1031,9 @@ def update_bidding_stage(stage_id: int, stage: schemas.BiddingStageUpdate, db: S
 def delete_bidding_stage(stage_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.role == "Viewer":
         raise HTTPException(status_code=403, detail="Viewers cannot delete bidding stages")
-    db_stage = db.query(models.BiddingStage).filter(models.BiddingStage.id == stage_id).first()
-    if not db_stage:
-        raise HTTPException(status_code=404, detail="Bidding Stage not found")
-    db.delete(db_stage)
+    db_stage = live(db, models.BiddingStage, stage_id, "Bidding Stage not found")
+    project_or_404(db, db_stage.project_id, current_user, write=True)
+    soft_delete(db_stage, current_user)
     db.commit()
     return {"message": "Bidding stage deleted successfully"}
 
@@ -977,18 +1041,14 @@ def delete_bidding_stage(stage_id: int, db: Session = Depends(get_db), current_u
 
 @app.put("/projects/{project_id}/submit-ustek-review")
 def submit_ustek_review(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    project = db.query(models.Project).filter(models.Project.id == project_id, models.Project.deleted_at == None).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = project_or_404(db, project_id, current_user, write=True)
     project.status_ustek_review = "On Review"
     db.commit()
     return {"message": "Ustek submitted for review", "status_ustek_review": "On Review"}
 
 @app.put("/projects/{project_id}/approve-ustek")
 def approve_ustek(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Gov"]))):
-    project = db.query(models.Project).filter(models.Project.id == project_id, models.Project.deleted_at == None).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = project_or_404(db, project_id, current_user, write=True)
     project.status_ustek_review = "Approved"
     project.status_selesai_substansi = True
     db.commit()

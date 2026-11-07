@@ -2,7 +2,13 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from database import Base
 
-class User(Base):
+
+class SoftDeleteMixin:
+    """Penanda hapus-lunak: baris tidak dibuang, hanya ditandai (dan disembunyikan dari query biasa)."""
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by = Column(String, nullable=True)
+
+class User(SoftDeleteMixin, Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
@@ -67,13 +73,13 @@ class Project(Base):
     deleted_by = Column(String, nullable=True)
 
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
-    stages = relationship("ProjectStage", back_populates="project", cascade="all, delete-orphan")
-    bidding_stages = relationship("BiddingStage", back_populates="project", cascade="all, delete-orphan")
+    stages = relationship("ProjectStage", back_populates="project", primaryjoin="and_(Project.id==ProjectStage.project_id, ProjectStage.deleted_at==None)", cascade="all, delete-orphan")
+    bidding_stages = relationship("BiddingStage", back_populates="project", primaryjoin="and_(Project.id==BiddingStage.project_id, BiddingStage.deleted_at==None)", cascade="all, delete-orphan")
     billings = relationship("Billing", back_populates="project", primaryjoin="and_(Project.id==Billing.project_id, Billing.deleted_at==None)", cascade="all, delete-orphan")
-    dashboards = relationship("ProjectDashboard", back_populates="project", cascade="all, delete-orphan")
-    penugasan_ta = relationship("TAPenugasan", back_populates="project", cascade="all, delete-orphan")
+    dashboards = relationship("ProjectDashboard", back_populates="project", primaryjoin="and_(Project.id==ProjectDashboard.project_id, ProjectDashboard.deleted_at==None)", cascade="all, delete-orphan")
+    penugasan_ta = relationship("TAPenugasan", back_populates="project", primaryjoin="and_(Project.id==TAPenugasan.project_id, TAPenugasan.deleted_at==None)", cascade="all, delete-orphan")
 
-class ProjectStage(Base):
+class ProjectStage(SoftDeleteMixin, Base):
     __tablename__ = "project_stages"
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"))
@@ -85,9 +91,9 @@ class ProjectStage(Base):
     is_meeting = Column(Boolean, default=False)
     tipe_meeting = Column(String, nullable=True) # Online, Offline
 
-    project = relationship("Project", back_populates="stages")
+    project = relationship("Project", back_populates="stages", primaryjoin="and_(Project.id==ProjectStage.project_id, ProjectStage.deleted_at==None)")
 
-class BiddingStage(Base):
+class BiddingStage(SoftDeleteMixin, Base):
     __tablename__ = "bidding_stages"
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
@@ -96,7 +102,7 @@ class BiddingStage(Base):
     status = Column(String, default="Pending") # Pending, Ongoing, Selesai, Batal
     keterangan = Column(String, nullable=True)
 
-    project = relationship("Project", back_populates="bidding_stages")
+    project = relationship("Project", back_populates="bidding_stages", primaryjoin="and_(Project.id==BiddingStage.project_id, BiddingStage.deleted_at==None)")
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -130,16 +136,16 @@ class Billing(Base):
 
     project = relationship("Project", back_populates="billings", primaryjoin="and_(Project.id==Billing.project_id, Billing.deleted_at==None)")
 
-class ProjectDashboard(Base):
+class ProjectDashboard(SoftDeleteMixin, Base):
     __tablename__ = "project_dashboards"
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     url_dashboard = Column(String, nullable=False)
     keterangan = Column(String, nullable=True)
 
-    project = relationship("Project", back_populates="dashboards")
+    project = relationship("Project", back_populates="dashboards", primaryjoin="and_(Project.id==ProjectDashboard.project_id, ProjectDashboard.deleted_at==None)")
 
-class TenagaAhli(Base):
+class TenagaAhli(SoftDeleteMixin, Base):
     __tablename__ = "tenaga_ahli"
     id = Column(Integer, primary_key=True, index=True)
     kode = Column(String, unique=True, index=True) # TA-0001
@@ -155,11 +161,11 @@ class TenagaAhli(Base):
     sumber_data = Column(String, nullable=True)
     catatan = Column(Text, nullable=True)
 
-    pendidikan = relationship("TAPendidikan", back_populates="tenaga_ahli", cascade="all, delete-orphan")
-    sertifikasi = relationship("TASertifikasi", back_populates="tenaga_ahli", cascade="all, delete-orphan")
-    penugasan = relationship("TAPenugasan", back_populates="tenaga_ahli", cascade="all, delete-orphan")
+    pendidikan = relationship("TAPendidikan", back_populates="tenaga_ahli", primaryjoin="and_(TenagaAhli.id==TAPendidikan.ta_id, TAPendidikan.deleted_at==None)", cascade="all, delete-orphan")
+    sertifikasi = relationship("TASertifikasi", back_populates="tenaga_ahli", primaryjoin="and_(TenagaAhli.id==TASertifikasi.ta_id, TASertifikasi.deleted_at==None)", cascade="all, delete-orphan")
+    penugasan = relationship("TAPenugasan", back_populates="tenaga_ahli", primaryjoin="and_(TenagaAhli.id==TAPenugasan.ta_id, TAPenugasan.deleted_at==None)", cascade="all, delete-orphan")
 
-class TAPendidikan(Base):
+class TAPendidikan(SoftDeleteMixin, Base):
     __tablename__ = "ta_pendidikan"
     id = Column(Integer, primary_key=True, index=True)
     ta_id = Column(Integer, ForeignKey("tenaga_ahli.id"), nullable=False)
@@ -168,18 +174,18 @@ class TAPendidikan(Base):
     universitas = Column(String, nullable=True)
     tahun_lulus = Column(Integer, nullable=True)
 
-    tenaga_ahli = relationship("TenagaAhli", back_populates="pendidikan")
+    tenaga_ahli = relationship("TenagaAhli", back_populates="pendidikan", primaryjoin="and_(TenagaAhli.id==TAPendidikan.ta_id, TAPendidikan.deleted_at==None)")
 
-class TASertifikasi(Base):
+class TASertifikasi(SoftDeleteMixin, Base):
     __tablename__ = "ta_sertifikasi"
     id = Column(Integer, primary_key=True, index=True)
     ta_id = Column(Integer, ForeignKey("tenaga_ahli.id"), nullable=False)
     nama_sertifikasi = Column(Text)
     tahun = Column(Integer, nullable=True)
 
-    tenaga_ahli = relationship("TenagaAhli", back_populates="sertifikasi")
+    tenaga_ahli = relationship("TenagaAhli", back_populates="sertifikasi", primaryjoin="and_(TenagaAhli.id==TASertifikasi.ta_id, TASertifikasi.deleted_at==None)")
 
-class TAPenugasan(Base):
+class TAPenugasan(SoftDeleteMixin, Base):
     __tablename__ = "ta_penugasan"
     id = Column(Integer, primary_key=True, index=True)
     ta_id = Column(Integer, ForeignKey("tenaga_ahli.id"), nullable=False)
@@ -191,5 +197,5 @@ class TAPenugasan(Base):
     status = Column(String, default="Diajukan") # Diajukan, Konfirmasi, Aktif, Selesai, Batal
     catatan = Column(String, nullable=True)
 
-    tenaga_ahli = relationship("TenagaAhli", back_populates="penugasan")
-    project = relationship("Project", back_populates="penugasan_ta")
+    tenaga_ahli = relationship("TenagaAhli", back_populates="penugasan", primaryjoin="and_(TenagaAhli.id==TAPenugasan.ta_id, TAPenugasan.deleted_at==None)")
+    project = relationship("Project", back_populates="penugasan_ta", primaryjoin="and_(Project.id==TAPenugasan.project_id, TAPenugasan.deleted_at==None)")

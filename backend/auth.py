@@ -59,7 +59,7 @@ def get_current_user(request: Request, token: Optional[str] = Depends(oauth2_sch
         username: str = payload.get("sub")
         if username:
             clean_u = username.strip().lower()
-            user = db.query(models.User).filter(models.User.username == clean_u).first()
+            user = db.query(models.User).filter(models.User.username == clean_u, models.User.deleted_at == None).first()
             if user:
                 return user
     except JWTError:

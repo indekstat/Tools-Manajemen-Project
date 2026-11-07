@@ -545,8 +545,14 @@ def get_users(db: Session = Depends(get_db), current_user: models.User = Depends
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Superadmin", "Admin", "IR", "Gov"]))):
     raise HTTPException(status_code=400, detail="Pembuatan akun dari localhost tidak diizinkan. Seluruh akun harus terdaftar di HRIS pnc.indekstat.com")
 
+def require_superadmin(current_user: models.User = Depends(auth.get_current_user)):
+    # Pengelolaan akun hanya untuk role Superadmin (bukan sekadar level CHIEF/HEAD).
+    if (current_user.role or "") != "Superadmin":
+        raise HTTPException(status_code=403, detail="Hanya Superadmin yang boleh mengelola akun")
+    return current_user
+
 @app.put("/users/{user_id}", response_model=schemas.UserResponse)
-def update_user(user_id: int, user_update: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Superadmin", "Admin", "IR", "Gov"]))):
+def update_user(user_id: int, user_update: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -557,17 +563,20 @@ def update_user(user_id: int, user_update: schemas.UserBase, db: Session = Depen
     return db_user
 
 @app.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Superadmin", "Admin", "IR", "Gov"]))):
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+    if db_user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Tidak bisa menghapus akun sendiri")
     db.delete(db_user)
     db.commit()
     return {"message": "User deleted successfully"}
 
 @app.post("/users/bulk-delete")
-def bulk_delete_users(request: schemas.BulkDeleteRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.check_role(["Superadmin", "Admin", "IR", "Gov"]))):
-    deleted_count = db.query(models.User).filter(models.User.id.in_(request.ids)).delete(synchronize_session=False)
+def bulk_delete_users(request: schemas.BulkDeleteRequest, db: Session = Depends(get_db), current_user: models.User = Depends(require_superadmin)):
+    ids = [i for i in request.ids if i != current_user.id]  # akun sendiri tidak ikut terhapus
+    deleted_count = db.query(models.User).filter(models.User.id.in_(ids)).delete(synchronize_session=False)
     db.commit()
     return {"message": f"Successfully deleted {deleted_count} users", "count": deleted_count}
 

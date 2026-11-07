@@ -188,15 +188,11 @@ def hris_login(payload: schemas.AuthLoginRequest, db: Session = Depends(get_db))
                 # Search for target username first to prevent unique constraint error
                 user = db.query(models.User).filter(models.User.username == target_username).first()
                 if not user:
-                    user = db.query(models.User).filter(
-                        (models.User.username.in_(alif_aliases)) |
-                        (models.User.nama.ilike("%Alif Hanif%"))
-                    ).first()
+                    user = db.query(models.User).filter(models.User.username.in_(alif_aliases)).first()
             else:
                 target_username = clean_user
+                # Cocokkan persis pada username; pencocokan nama (ILIKE) bisa menimpa akun orang lain.
                 user = db.query(models.User).filter(models.User.username == clean_user).first()
-                if not user:
-                    user = db.query(models.User).filter(models.User.nama.ilike(f"%{clean_user}%")).first()
 
             # If alias user exists, delete duplicate alias rows BEFORE updating username
             if clean_user in alif_aliases and user:

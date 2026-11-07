@@ -4,3 +4,9 @@ backend/*.db
 
 # Rahasia lokal
 .env
+
+# Data pribadi / kredensial: jangan masuk git
+Daftar_User_*
+*.db
+__pycache__/
+*.pyc

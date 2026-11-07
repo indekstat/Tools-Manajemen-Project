@@ -1,4 +1,5 @@
 import os
+import secrets
 import datetime
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -89,7 +90,11 @@ app.add_middleware(
 
 @app.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    # Login lokal dimatikan: frontend memakai login HRIS (/api/auth/login/). Hash lokal bisa berisi kata sandi default
+    # dari seed/sinkronisasi, sehingga endpoint ini jadi pintu belakang. Hidupkan kembali hanya dengan ALLOW_LOCAL_LOGIN=1.
+    if os.getenv("ALLOW_LOCAL_LOGIN") != "1":
+        raise HTTPException(status_code=403, detail="Login lokal dinonaktifkan. Gunakan login HRIS.")
+    user = db.query(models.User).filter(models.User.username == form_data.username, models.User.deleted_at == None).first()
     if not user or not auth.verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -454,7 +459,7 @@ def fetch_pnc_employees(db: Session, pnc_token: Optional[str] = None, force_refr
                 if not db_user:
                     db_user = models.User(
                         username=target_u,
-                        password_hash=auth.get_password_hash("password"),
+                        password_hash=auth.get_password_hash(secrets.token_urlsafe(32)),  # tidak bisa dipakai login lokal
                         role=assigned_role,
                         level=level_jabatan,
                         divisi=dept,

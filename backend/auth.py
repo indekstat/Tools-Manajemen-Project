@@ -1,3 +1,5 @@
+import os
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -8,7 +10,11 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 
-SECRET_KEY = "my_super_secret_key_for_this_project_tracking"
+# Kunci penandatangan JWT wajib dari environment (JWT_SECRET_KEY). Tanpa itu dipakai kunci acak per proses:
+# aman, tapi semua sesi putus setiap server restart. Jangan pernah menaruh kunci di kode.
+SECRET_KEY = os.getenv("JWT_SECRET_KEY") or secrets.token_urlsafe(48)
+if not os.getenv("JWT_SECRET_KEY"):
+    print("PERINGATAN: JWT_SECRET_KEY belum di-set; memakai kunci acak sementara (sesi hilang saat restart).")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
 

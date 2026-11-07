@@ -1,3 +1,6 @@
 
 # Database lokal (berisi data user)
 backend/*.db
+
+# Rahasia lokal
+.env

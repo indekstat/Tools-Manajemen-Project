@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { fetchWithAuth } from '../lib/api';
+import InstallButton from './InstallButton';
 import { IconDashboard, IconBidding, IconUstek, IconTrophy, IconFinance, IconGlobe, IconUser } from './Icons';
 
 export default function Sidebar() {
@@ -183,6 +184,7 @@ function SidebarContent() {
                 <span className="user-role-badge">Role: {user.role}</span>
               </div>
             </div>
+            <InstallButton />
             <button onClick={handleLogout} className="btn-logout">
               Logout
             </button>

@@ -10,6 +10,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  themeColor: '#ea580c',
 };
 
 export const metadata: Metadata = {
@@ -18,7 +19,12 @@ export const metadata: Metadata = {
   icons: {
     icon: '/Favicon.png',
     shortcut: '/Favicon.png',
-    apple: '/Favicon.png',
+    apple: '/icons/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'InDeTrack',
+    statusBarStyle: 'default',
   },
 };
 

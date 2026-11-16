@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl } from '../../lib/api';
+import InstallButton from '../../components/InstallButton';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -109,6 +110,10 @@ export default function LoginPage() {
 
         <div style={{ marginTop: '1.5rem', padding: '0.75rem', borderRadius: '8px', background: 'rgba(2, 132, 199, 0.1)', border: '1px solid rgba(2, 132, 199, 0.3)', color: '#0284c7', fontSize: '0.8rem', textAlign: 'center' }}>
           🔒 Autentikasi terhubung langsung dengan <strong>pnc.indekstat.com</strong>.
+        </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          <InstallButton />
         </div>
       </div>
     </div>

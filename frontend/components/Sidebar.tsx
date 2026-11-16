@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import { fetchWithAuth } from '../lib/api';
 import InstallButton from './InstallButton';
 import { IconDashboard, IconBidding, IconUstek, IconTrophy, IconFinance, IconGlobe, IconUser } from './Icons';
@@ -20,6 +20,7 @@ function SidebarContent() {
   const router = useRouter();
   const currentView = searchParams.get('view') || 'worksheet';
   const [user, setUser] = useState<{ username: string; role: string; level?: string } | null>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (pathname === '/login') return;
@@ -36,6 +37,28 @@ function SidebarContent() {
         router.push('/login');
       });
   }, [pathname, router]);
+
+  useEffect(() => {
+    // Gulirkan menu aktif ke tengah (di desktop nav tidak bisa digulir ke samping, jadi tidak berpengaruh).
+    // Dihitung ulang setelah font web siap karena lebar menu berubah sedikit; guliran langsung agar pemanggilan beruntun tidak saling menimpa.
+    const pusatkan = () => {
+      const nav = navRef.current;
+      const aktif = nav?.querySelector<HTMLElement>('.nav-item.active');
+      if (!nav || !aktif) return;
+      const n = nav.getBoundingClientRect();
+      const a = aktif.getBoundingClientRect();
+      nav.scrollTo({ left: nav.scrollLeft + (a.left - n.left) - (n.width - a.width) / 2 });
+    };
+    const id = requestAnimationFrame(pusatkan);
+    let batal = false;
+    document.fonts?.ready.then(() => {
+      if (!batal) pusatkan();
+    });
+    return () => {
+      batal = true;
+      cancelAnimationFrame(id);
+    };
+  }, [pathname, user]);
 
   if (pathname === '/login') {
     return null;
@@ -101,6 +124,7 @@ function SidebarContent() {
     <aside className="sidebar">
       <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '0.5rem 0 1.25rem' }}>
         <img 
+          className="sidebar-logo"
           src="/logo.png" 
           alt="InDeTrack Logo" 
           style={{ 
@@ -119,7 +143,7 @@ function SidebarContent() {
         />
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" ref={navRef}>
         {navItems.map((item) => {
           const isSuperOrLeader = user?.role === 'Superadmin' || user?.level === 'CHIEF' || user?.level === 'HEAD';
           const isAllowed = isSuperOrLeader || item.roles.includes('*') || item.roles.includes(user?.role || '');
@@ -139,7 +163,7 @@ function SidebarContent() {
               </Link>
 
               {item.subItems && isParentActive && (
-                <div style={{ paddingLeft: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.1rem', marginBottom: '0.35rem' }}>
+                <div className="subnav-inline" style={{ paddingLeft: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.1rem', marginBottom: '0.35rem' }}>
                   {item.subItems.map((sub) => {
                     const isSubActive = currentView === sub.tab;
 
@@ -173,6 +197,30 @@ function SidebarContent() {
           );
         })}
       </nav>
+
+      {(() => {
+        const induk = navItems.find((it) => it.subItems && it.path === pathname);
+        if (!induk?.subItems) return null;
+        return (
+          <div className="subnav-mobile">
+            {induk.subItems.map((sub) => {
+              const on = currentView === sub.tab;
+              return (
+                <Link
+                  key={sub.tab}
+                  href={`${induk.path}?view=${sub.tab}`}
+                  style={{
+                    color: on ? '#fff' : induk.defaultColor,
+                    background: on ? induk.defaultColor : `${induk.defaultColor}18`,
+                  }}
+                >
+                  {sub.label}
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       <div className="sidebar-footer">
         {user ? (

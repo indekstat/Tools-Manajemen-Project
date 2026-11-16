@@ -56,12 +56,12 @@ export default function InstallButton({ className = 'btn-install' }: { className
   const aman = window.isSecureContext;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ display: 'contents' }}>
       <button type="button" onClick={pasang} className={className}>
         {bisaOtomatis ? '⬇ Install Aplikasi' : '⬇ Pasang di layar utama'}
       </button>
       {panduan && !bisaOtomatis && (
-        <p style={{ fontSize: '0.75rem', lineHeight: 1.5, color: 'var(--text-muted)', margin: '0.5rem 0 0' }}>
+        <p className="install-panduan" style={{ fontSize: '0.75rem', lineHeight: 1.5, color: 'var(--text-muted)', margin: '0.5rem 0 0' }}>
           {!aman
             ? 'Install otomatis butuh alamat HTTPS. Hubungi admin, atau buka lewat alamat yang diawali https://.'
             : ios

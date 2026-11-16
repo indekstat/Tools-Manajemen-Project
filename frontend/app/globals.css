@@ -140,6 +140,10 @@ body {
   box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
 }
 
+.subnav-mobile {
+  display: none;
+}
+
 .sidebar-footer {
   padding-top: 1rem;
   border-top: 1px solid var(--card-border);
@@ -800,6 +804,108 @@ tr:hover td {
     padding: 0.5rem 0.85rem;
   }
 
+  /* Header ringkas: logo di kiri, user + tombol di kanan (satu baris), lalu menu dan submenu */
+  .sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .sidebar-header {
+    flex: 0 0 auto;
+    width: auto !important;
+    margin: 0;
+    padding: 0 !important;
+    border-bottom: none;
+  }
+
+  .sidebar-logo {
+    height: 34px !important;
+    margin: 0 !important;
+  }
+
+  .sidebar-footer {
+    order: 2;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.4rem;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .user-badge {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 0.2rem 0.5rem 0.2rem 0.25rem;
+    gap: 0.4rem;
+    box-shadow: none;
+  }
+
+  .user-badge .avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .user-name {
+    font-size: 0.75rem;
+    max-width: 90px;
+  }
+
+  .user-role-badge {
+    display: none;
+  }
+
+  .sidebar-footer .btn-install,
+  .sidebar-footer .btn-logout {
+    width: auto;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .install-panduan {
+    flex: 1 1 100%;
+    text-align: right;
+    margin: 0 !important;
+  }
+
+  .sidebar-nav {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    padding-bottom: 0.25rem;
+  }
+
+  .subnav-inline {
+    display: none !important;
+  }
+
+  .subnav-mobile {
+    order: 4;
+    flex: 1 1 100%;
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+  }
+
+  .subnav-mobile a {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
   .main-content {
     margin-left: 0;
     max-width: 100vw;
@@ -831,16 +937,6 @@ tr:hover td {
 }
 
 @media screen and (max-width: 480px) {
-  .sidebar-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .user-badge {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
   .stat-value {
     font-size: 1.5rem;
   }
@@ -852,7 +948,9 @@ tr:hover td {
   }
 
   /* Make sure flex items wrap on small screens */
-  div[style*="display: flex"] {
+  /* Hanya wadah berarah baris yang boleh membungkus. Pada kolom, wrap membuat konten tersusun dalam beberapa lajur
+     selebar elemen terlebar sehingga halaman melebar melewati layar. */
+  div[style*="display: flex"]:not([style*="flex-direction: column"]) {
     flex-wrap: wrap !important;
   }
 

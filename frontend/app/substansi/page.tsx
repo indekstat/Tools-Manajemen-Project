@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { fetchWithAuth } from '../../lib/api';
+import { notify } from '../../lib/notify';
 import DetailModal from '../../components/DetailModal';
 import { IconCheck, IconClock, IconEye } from '../../components/Icons';
 
@@ -44,7 +45,7 @@ export default function SubstansiPage() {
       loadProjects();
     } else {
       const err = await res.json();
-      alert(`Gagal mengubah status: ${err.detail || 'Terjadi kesalahan'}`);
+      notify('error', `Gagal mengubah status: ${err.detail || 'Terjadi kesalahan'}`);
     }
   };
 

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import { fetchWithAuth } from '../../lib/api';
+import { confirmDialog, notify } from '../../lib/notify';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import { IconGlobe, IconSearch, IconClose, IconEye, IconUser, IconCheck, IconTrash, IconLink } from '../../components/Icons';
@@ -108,17 +109,17 @@ export default function ProjectDashboardsPage() {
       setShowAddModal(false);
       loadData();
     } catch (err) {
-      alert('Gagal menyimpan data dashboard project');
+      notify('error', 'Gagal menyimpan data dashboard project');
     }
   };
 
   const handleDeleteDashboard = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus tautan dashboard ini?')) return;
+    if (!(await confirmDialog({ title: 'Hapus tautan dashboard?', message: 'Tautan dashboard ini akan dihapus dari daftar.', confirmText: 'Hapus', danger: true }))) return;
     try {
       await fetchWithAuth(`/dashboards/${id}`, { method: 'DELETE' });
       loadData();
     } catch (err) {
-      alert('Gagal menghapus data dashboard');
+      notify('error', 'Gagal menghapus data dashboard');
     }
   };
 

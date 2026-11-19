@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchWithAuth } from '../lib/api';
+import { confirmDialog } from '../lib/notify';
 import { IconSearch, IconClose } from './Icons';
 
 const EDIT_ROLES = ['Gov', 'Pol', 'IR', 'Systech', 'Superadmin', 'Management', 'Admin'];
@@ -59,7 +60,7 @@ export default function AssignTAModal({ project, onClose, onChanged }: { project
   };
 
   const remove = async (id: number) => {
-    if (!confirm('Lepas TA ini dari project?')) return;
+    if (!(await confirmDialog({ title: 'Lepas TA dari project?', message: 'TA ini akan dilepas dari project.', confirmText: 'Lepas', danger: true }))) return;
     const res = await fetchWithAuth(`/ta-penugasan/${id}`, { method: 'DELETE' });
     if (res.ok) { await loadAssigned(); onChanged?.(); }
   };

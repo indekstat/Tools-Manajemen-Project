@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Sidebar from '../components/Sidebar';
 import AuthGuard from '../components/AuthGuard';
 import Toast from '../components/Toast';
+import ConfirmHost from '../components/ConfirmHost';
 
 import { Viewport } from 'next';
 
@@ -45,6 +46,7 @@ export default function RootLayout({
           </div>
         </AuthGuard>
         <Toast />
+        <ConfirmHost />
       </body>
     </html>
   );

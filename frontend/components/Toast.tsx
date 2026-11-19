@@ -10,7 +10,8 @@ export default function Toast() {
       const detail = (e as CustomEvent).detail;
       setToast({ ...detail, key: Date.now() });
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setToast(null), 2500);
+      // Pesan gagal dibiarkan lebih lama karena biasanya memuat penyebab yang perlu dibaca.
+      timer.current = setTimeout(() => setToast(null), detail?.type === 'error' ? 6000 : 2500);
     };
     window.addEventListener('app:toast', handler);
     return () => {
@@ -24,7 +25,7 @@ export default function Toast() {
   return (
     <div
       key={toast.key}
-      role="status"
+      role={ok ? 'status' : 'alert'}
       style={{
         position: 'fixed',
         top: '1.25rem',

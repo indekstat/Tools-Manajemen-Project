@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { fetchWithAuth, formatCurrencySmart } from '../../lib/api';
+import { confirmDialog, notify } from '../../lib/notify';
 import DetailModal from '../../components/DetailModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import ClickableText from '../../components/ClickableText';
@@ -71,7 +72,7 @@ function MarketingContent() {
   };
 
   const handleDeleteBiddingStage = async (stageId: number) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus tahapan ini?')) return;
+    if (!(await confirmDialog({ title: 'Hapus tahapan?', message: 'Tahapan ini akan dihapus dari project.', confirmText: 'Hapus', danger: true }))) return;
     await fetchWithAuth(`/bidding-stages/${stageId}`, {
       method: 'DELETE',
     });
@@ -256,7 +257,7 @@ const getTahapanRank = (key: string) => {
       loadProjects();
     } else {
       const err = await res.json();
-      alert(`Gagal menambah data: ${err.detail || 'Terjadi kesalahan'}`);
+      notify('error', `Gagal menambah data: ${err.detail || 'Terjadi kesalahan'}`);
     }
   };
 

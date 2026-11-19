@@ -1,6 +1,7 @@
 'use client';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { fetchWithAuth, isProjectSelesaiAkhir } from '../lib/api';
+import { confirmDialog } from '../lib/notify';
 import { IconUser, IconSearch, IconTrash, IconClose } from './Icons';
 
 const EDIT_ROLES = ['Gov', 'Pol', 'IR', 'Systech', 'Superadmin', 'Management', 'Admin'];
@@ -298,7 +299,7 @@ function TADetailModal({ ta, projects, canEdit, onClose, reload }: { ta: any; pr
     if ((await call(`/tenaga-ahli/${ta.id}`, 'PUT', body)).ok) setEditing(false);
   };
   const removeTA = async () => {
-    if (!confirm(`Hapus ${ta.nama} dari database TA beserta seluruh penugasannya?`)) return;
+    if (!(await confirmDialog({ title: 'Hapus TA dari database?', message: `${ta.nama} akan dihapus dari database TA beserta seluruh penugasannya.`, confirmText: 'Hapus', danger: true }))) return;
     if ((await call(`/tenaga-ahli/${ta.id}`, 'DELETE')).ok) onClose();
   };
   const addEdu = async () => {
@@ -441,7 +442,7 @@ function TADetailModal({ ta, projects, canEdit, onClose, reload }: { ta: any; pr
                         </select>
                       ) : <span className="badge" style={{ background: pc.bg, color: pc.fg }}>{a.status}</span>}
                     </td>
-                    {canEdit && <td><button title="Lepas dari project" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => confirm('Hapus penugasan ini?') && call(`/ta-penugasan/${a.id}`, 'DELETE')}><IconClose size={15} color="#ef4444" /></button></td>}
+                    {canEdit && <td><button title="Lepas dari project" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={async () => { if (await confirmDialog({ title: 'Hapus penugasan?', message: 'Penugasan TA ini akan dihapus.', confirmText: 'Hapus', danger: true })) call(`/ta-penugasan/${a.id}`, 'DELETE'); }}><IconClose size={15} color="#ef4444" /></button></td>}
                   </tr>
                 );
               })}
